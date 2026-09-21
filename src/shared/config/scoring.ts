@@ -43,3 +43,17 @@ export const SCENARIO_SENSITIVITY: Record<Scenario, number> = {
   mixed: 0.6,
   'transit-only': 0.3,
 }
+
+/**
+ * 점수 정규화 스케일. AGENTS.md 12장의 시간점수/비용점수를 같은 크기 축으로 맞춘다.
+ * 초·원 원단위를 그대로 더하면 비용(원)이 시간(초)을 압도하므로 스케일로 환산한다.
+ * 전부 튜닝 대상.
+ */
+export const SCORE_SCALE = {
+  /** 시간점수 = durationSec/60 × timePerMinute (분당 점수) */
+  timePerMinute: 1,
+  /** 비용점수 = cost/100 × costPer100Won (백원당 점수) */
+  costPer100Won: 0.5,
+  /** 피로도점수 = fatigue × fatigueWeight (fatigue는 이미 0~100 스케일) */
+  fatigueWeight: 1,
+} as const
