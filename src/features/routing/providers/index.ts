@@ -4,3 +4,4 @@ export {
   MockTransitProvider,
   MockWalkProvider,
 } from './mock'
+export { KakaoCarProvider } from './kakao'
