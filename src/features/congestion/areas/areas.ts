@@ -74,3 +74,53 @@ const AREA_NAME_BY_CODE = new Map(
 export function areaNameOf(areaCode: string): string | null {
   return AREA_NAME_BY_CODE.get(areaCode) ?? null
 }
+
+export type AreaInfo = {
+  areaCode: string
+  areaName: string
+  category: string
+  /** 대표 좌표 (외곽 링 bbox 중심) */
+  center: LatLng
+}
+
+/** 폴리곤/멀티폴리곤 외곽 링을 얻는다 */
+function outerRing(g: AreaFeature['geometry']): number[][] {
+  return g.type === 'Polygon' ? g.coordinates[0] : g.coordinates[0][0]
+}
+
+function bboxCenter(ring: number[][]): LatLng {
+  let mnx = Infinity,
+    mxx = -Infinity,
+    mny = Infinity,
+    mxy = -Infinity
+  for (const [x, y] of ring) {
+    if (x < mnx) mnx = x
+    if (x > mxx) mxx = x
+    if (y < mny) mny = y
+    if (y > mxy) mxy = y
+  }
+  return { lat: (mny + mxy) / 2, lng: (mnx + mxx) / 2 }
+}
+
+const AREA_LIST: AreaInfo[] = features.map((f) => ({
+  areaCode: f.properties.areaCode,
+  areaName: f.properties.areaName,
+  category: f.properties.category,
+  center: bboxCenter(outerRing(f.geometry)),
+}))
+
+/** 121곳 목록 (areaCode, 이름, 분류, 대표좌표). 도착지/경유지 선택용 */
+export function listAreas(): AreaInfo[] {
+  return AREA_LIST
+}
+
+/** 이름/분류에 검색어가 포함된 121곳만 필터 */
+export function searchAreas(query: string): AreaInfo[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return AREA_LIST
+  return AREA_LIST.filter(
+    (a) =>
+      a.areaName.toLowerCase().includes(q) ||
+      a.category.toLowerCase().includes(q),
+  )
+}

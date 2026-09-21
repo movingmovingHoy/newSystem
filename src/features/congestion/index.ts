@@ -1,4 +1,10 @@
-export { matchArea, pointInRing } from './areas/areas'
+export {
+  matchArea,
+  pointInRing,
+  listAreas,
+  searchAreas,
+  type AreaInfo,
+} from './areas/areas'
 export {
   parseCityData,
   pickForecastLevel,

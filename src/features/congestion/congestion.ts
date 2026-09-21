@@ -26,6 +26,7 @@ export class CongestionService {
     this.provider = provider
   }
 
+  /** 좌표 → areaCode 매칭 후 혼잡 조회. 121곳 밖이면 level=null */
   async getCongestion(
     location: LatLng,
     arriveAt: Date,
@@ -35,7 +36,17 @@ export class CongestionService {
       // 121곳 밖: 정보 없음
       return { level: null }
     }
+    return this.getCongestionByArea(areaCode, arriveAt)
+  }
 
+  /**
+   * areaCode를 이미 아는 경우 직접 조회 (좌표 재매칭 없음).
+   * 121곳 목록에서 고른 도착지/경유지에 쓴다.
+   */
+  async getCongestionByArea(
+    areaCode: string,
+    arriveAt: Date,
+  ): Promise<PlaceCongestion> {
     const data = await this.getCityData(areaCode)
     const level = pickForecastLevel(data, arriveAt)
     return { level, areaCode }
