@@ -5,6 +5,7 @@ import { scoreRoute } from '../scoring/scoring'
 import { buildTimeline } from '../timeline/timeline'
 import { sumTotals } from './totals'
 import type { Preference } from '@shared/config'
+import { TRANSFER_WINDOW_MIN } from '@shared/config'
 
 /**
  * 전 구간 대중교통(transit-only) 경로. AGENTS.md 8장.
@@ -56,6 +57,18 @@ export async function buildTransitOnlyRoute(
       departAt,
     })
     legs.push(...segment)
+  }
+
+  // 서울시 환승요금 규칙 적용 (AGENTS.md 8·13장).
+  // leg[i](i>0)는 경유지[i-1]에서 내렸다 다시 타는 구간이다.
+  // 그 경유지 체류가 환승 기준시간(TRANSFER_WINDOW_MIN) 이내면 환승으로 보고
+  // 기본요금을 다시 부과하지 않는다(cost=0). 초과하면 새 승차라 요금 유지.
+  // (구간별 거리 추가요금은 계산하지 않는다 — 환승 여부만 판단)
+  for (let i = 1; i < legs.length; i++) {
+    const dwellMin = orderedWaypoints[i - 1]?.dwellMin ?? 0
+    if (dwellMin <= TRANSFER_WINDOW_MIN) {
+      legs[i] = { ...legs[i], cost: 0 }
+    }
   }
 
   // 구간별 소요시간으로 타임라인 재계산 (출발 시각 + 이동 + 체류 누적)

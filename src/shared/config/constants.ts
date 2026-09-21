@@ -18,3 +18,18 @@ export const CONGESTION_CACHE_TTL_MIN = 30
  * (MVP 단순화, 튜닝 대상. 수도권 표준값 기준)
  */
 export const TRANSIT_BASE_FARE = 1400
+
+/**
+ * 도보 mock 추정 상수. 카카오 도보 API(유료) 대신 직선거리 기반 추정에 사용한다.
+ * 실물 도보 provider가 붙으면 이 상수는 mock에서만 쓰인다.
+ */
+/** 보행 속도 (km/h). 도시 보행자 평균 4.0 기준. */
+export const WALK_SPEED_KMH = 4.0
+/** 우회계수. 직선거리 × 이 값 ≈ 실제 도보 거리. 도시 보행 표준 근사치. */
+export const WALK_DETOUR_FACTOR = 1.2
+
+/**
+ * 서울시 환승 기준시간 (분). 하차 후 이 시간 이내에 재승차하면 환승으로 인정해
+ * 기본요금을 다시 부과하지 않는다. 초과하면 새 승차(기본요금 부과).
+ */
+export const TRANSFER_WINDOW_MIN = 30

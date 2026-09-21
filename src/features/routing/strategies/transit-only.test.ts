@@ -95,8 +95,10 @@ describe('buildTransitOnlyRoute', () => {
     expect(route.stops).toHaveLength(2)
     // 총 이동시간 = 600 * 3
     expect(route.totals.durationSec).toBe(1800)
-    // 비용 = 1400 * 3 (요약형 기본요금이 구간마다)
-    expect(route.totals.cost).toBe(4200)
+    // 환승요금 규칙: A 체류 30분 ≤ 환승기준 → A→B 환승(0원)
+    //              B 체류 45분 > 환승기준 → B→도착 새 요금(1400원)
+    // 합: 1400(첫구간) + 0(A후) + 1400(B후) = 2800
+    expect(route.totals.cost).toBe(2800)
     expect(route.score).toBeGreaterThan(0)
     expect(route.stops[0].accessMode).toBe('transit')
   })
@@ -136,5 +138,33 @@ describe('buildTransitOnlyRoute', () => {
     // 혼잡 있으면 점수가 더 높다(나쁨). transit-only 민감도가 낮아도 0보다는 큼
     expect(withCongestion.score).toBeGreaterThan(noCongestion.score)
     expect(withCongestion.stops[0].congestion.level).toBe(3)
+  })
+
+  it('환승 기준시간 이내 체류면 다음 구간 요금이 붙지 않는다(환승)', async () => {
+    const provider = makeTransitProvider(600)
+    // 경유지 1개, 체류 10분(<=30) → A→도착 구간은 환승이라 요금 0
+    const route = await buildTransitOnlyRoute(provider, {
+      origin,
+      destination,
+      orderedWaypoints: [wp('A', 37.52, 127.0, 10)],
+      departAt: '2026-09-21T09:00:00.000Z',
+      preference: 'cost',
+    })
+    // 첫 구간 1400 + 환승(0) = 1400
+    expect(route.totals.cost).toBe(1400)
+  })
+
+  it('환승 기준시간 초과 체류면 다음 구간에 새 요금이 붙는다', async () => {
+    const provider = makeTransitProvider(600)
+    // 경유지 1개, 체류 60분(>30) → A→도착 구간은 새 승차라 요금 부과
+    const route = await buildTransitOnlyRoute(provider, {
+      origin,
+      destination,
+      orderedWaypoints: [wp('A', 37.52, 127.0, 60)],
+      departAt: '2026-09-21T09:00:00.000Z',
+      preference: 'cost',
+    })
+    // 1400 + 1400 = 2800
+    expect(route.totals.cost).toBe(2800)
   })
 })

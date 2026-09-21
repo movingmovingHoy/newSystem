@@ -88,10 +88,19 @@ async function computeAccess(
     mode: 'transit',
   }
 
-  // 접근 시간이 짧은 쪽 선택
-  const walkSec = walkOut.durationSec + walkBack.durationSec
-  const transitSec = transitOut.durationSec + transitBack.durationSec
-  return transitSec < walkSec ? transitAccess : walkAccess
+  // 시간만이 아니라 시간+비용+피로도로 비교해 좋은 쪽 선택 (AGENTS.md 8장).
+  // 접근은 짧은 구간이라 간단한 가중합으로 근사한다.
+  const accessCost = (legs: Leg[]): number => {
+    const sec = legs.reduce((s, l) => s + l.durationSec, 0)
+    const won = legs.reduce((s, l) => s + l.cost, 0)
+    const walkM = legs.reduce((s, l) => s + l.walkDistanceM, 0)
+    const transfers = legs.reduce((s, l) => s + l.transfers, 0)
+    // 분 + 비용(백원당 0.5) + 도보(100m당 1) + 환승(회당 3)
+    return sec / 60 + (won / 100) * 0.5 + (walkM / 100) * 1 + transfers * 3
+  }
+  return accessCost(transitAccess.legs) < accessCost(walkAccess.legs)
+    ? transitAccess
+    : walkAccess
 }
 
 export type CarRoutesResult = {

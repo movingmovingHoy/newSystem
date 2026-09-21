@@ -1,6 +1,7 @@
 import type { LatLng, Route, Waypoint } from '@shared/types'
 import type { Preference } from '@shared/config'
 import type { RouteProvider } from './providers'
+import { CachedRouteProvider } from '@shared/cache'
 import {
   optimizeOrder,
   START_ID,
@@ -81,13 +82,27 @@ export async function planRoutes(
 ): Promise<PlanResult> {
   const { origin, destination, waypoints, departAt, preference } = input
 
+  // provider를 캐시 래퍼로 감싼다 (AGENTS.md 14장). 같은 키는 1번만 호출,
+  // 동시 요청 합치기, 실패 시 만료 캐시 반환.
+  const cachedProviders: PlanProviders = {
+    car: new CachedRouteProvider(providers.car, { fallbackToStale: true }),
+    walk: new CachedRouteProvider(providers.walk, { fallbackToStale: true }),
+    transit: new CachedRouteProvider(providers.transit, {
+      fallbackToStale: true,
+    }),
+  }
+
   // 1) 순서 최적화 (자차 구간 시간 기준)
   const pointById = new Map<string, LatLng>()
   pointById.set(START_ID, origin)
   pointById.set(END_ID, destination)
   for (const w of waypoints) pointById.set(w.waypoint.id, w.waypoint.location)
 
-  const table = await buildCarDurationTable(providers.car, pointById, departAt)
+  const table = await buildCarDurationTable(
+    cachedProviders.car,
+    pointById,
+    departAt,
+  )
   const optimizerWaypoints: OptimizerWaypoint[] = waypoints.map((w) => ({
     id: w.waypoint.id,
     fixedIndex: w.waypoint.fixedIndex,
@@ -109,7 +124,7 @@ export async function planRoutes(
   }))
 
   // 2) 시나리오 3종 생성
-  const carRoutes = await buildCarRoutes(providers, {
+  const carRoutes = await buildCarRoutes(cachedProviders, {
     origin,
     destination,
     ordered: orderedParking,
@@ -117,7 +132,7 @@ export async function planRoutes(
     preference,
     congestionLevelAt: input.congestionLevelAt,
   })
-  const transitOnly = await buildTransitOnlyRoute(providers.transit, {
+  const transitOnly = await buildTransitOnlyRoute(cachedProviders.transit, {
     origin,
     destination,
     orderedWaypoints,
