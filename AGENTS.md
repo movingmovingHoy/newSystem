@@ -3,11 +3,14 @@
 이 파일이 프로젝트 규칙의 단일 원본이다. 모든 AI 도구와 팀원은 작업 전에 이 파일을 먼저 읽고 따른다.
 
 ## 1. 프로젝트 개요
+
 출발지, 경유지(최대 3), 도착지를 입력하면 자차 / 혼합(주차 후 도보·대중교통) / 전 구간 대중교통 경로를 비교해 주는 서울 길찾기 웹 서비스.
+
 - 길찾기 엔진은 직접 만들지 않는다. 외부 공식 API 결과를 가져와 조합, 점수화, 추천 근거 제공이 핵심이다
 - 크롤링/스크래핑 금지, 공식 API만 사용
 
 ## 2. MVP 범위 (넘지 말 것)
+
 - 지역: 서울
 - 입력: 출발지 1, 도착지 1(별도 입력), 출발 시각(기본 지금), 경유지 최대 3개(경유지별 체류시간 입력, 기본 60분)
 - 결과: 경유지별 도착/출발 시각과 최종 도착 시각(출발 시각 + 이동시간 + 체류시간 누적)
@@ -18,12 +21,14 @@
 - 하지 않는 것: 모두의주차장 연동, 3개월 혼잡도 수집, 이벤트 mock, 시간 고정 경유지
 
 ## 3. 기술 스택
+
 - Node.js + TypeScript (`strict: true`), 테스트 Vitest
 - 캐시: 개발 시 메모리(`lru-cache`), 배포 시 Redis
 - 주차장 정보 저장: DB (개발 시 SQLite 가능)
 - 프론트: 기존 UI 정리 후 유지, 디자인 토큰 기반
 
 ## 4. 폴더 구조
+
 ```
 src/
   features/
@@ -51,31 +56,46 @@ src/
 ```
 
 ## 5. 아키텍처 규칙
+
 - UI 컴포넌트에 비즈니스 로직 금지. 로직은 hooks/services로
 - 외부 API 호출은 반드시 providers/ 안에서만. 다른 곳에서 직접 fetch 금지
 - 한 파일은 한 가지 책임만. 300줄을 넘으면 분리를 검토 (ESLint max-lines는 warn, 강제 아님)
 - 색·폰트·간격은 디자인 토큰에서만 정의, 컴포넌트에 하드코딩 금지
-- 상수와 가중치는 shared/config에 모은다: MAX_WAYPOINTS=3, MAX_PARKING_CANDIDATES=3, PARKING_RADIUS_M=1000, WALK_ONLY_THRESHOLD_M=400, DEFAULT_DWELL_MIN=60, CONGESTION_CACHE_TTL_MIN=30
+- 상수와 가중치는 shared/config에 모은다: MAX_WAYPOINTS=3, MAX_PARKING_CANDIDATES=3, PARKING_RADIUS_M=1000, WALK_ONLY_THRESHOLD_M=400, DEFAULT_DWELL_MIN=60, CONGESTION_CACHE_TTL_MIN=30, TRANSIT_BASE_FARE=1400
+  - TRANSIT_BASE_FARE는 대중교통 요금을 못 얻는 provider(mock 등)의 대체값이다. ODsay는 실제 요금(payment)을 주므로 그 값을 우선 사용한다.
 - 과설계 금지 (마이크로서비스, 불필요한 추상화 X). "단순하되 분리는 명확하게"
 - 코드 작성 전에 변경할 파일과 역할을 먼저 제시하고, 승인 후 구현
 - 담당 폴더 밖은 수정하지 않는다. shared/types 수정이 필요하면 먼저 사용자에게 알린다
 
 ## 6. 공통 타입 (shared/types, 임의 변경 금지)
+
 ```ts
 type Mode = 'car' | 'walk' | 'subway' | 'bus'
 
+type TransitStep = {
+  // 대중교통 구간 상세 (표시용, 계산에는 미사용)
+  type: 'walk' | 'subway' | 'bus'
+  line?: string // 지하철 노선명 / 버스 번호
+  from?: string // 승차 정류장·역
+  to?: string // 하차 정류장·역
+  minutes: number
+  distanceM: number
+  stationCount?: number
+}
+
 type Leg = {
   mode: Mode
-  role?: 'drive' | 'access-out' | 'access-back'  // 혼합 경로의 주차장↔경유지 왕복 구분
+  role?: 'drive' | 'access-out' | 'access-back' // 혼합 경로의 주차장↔경유지 왕복 구분
   from: LatLng
   to: LatLng
-  departAt: string          // ISO
+  departAt: string // ISO
   arriveAt: string
   durationSec: number
-  cost: number              // 교통비, 통행료 (주차비 제외)
+  cost: number // 교통비, 통행료 (주차비 제외)
   walkDistanceM: number
   transfers: number
-  fatigue: number           // 0~100
+  fatigue: number // 0~100
+  transitDetail?: TransitStep[] // 대중교통 구간 상세 (선택, 표시용). 계산에는 쓰지 않음
 }
 
 // null = 정보 없음 (121곳 밖이거나 예측 범위 밖)
@@ -84,17 +104,17 @@ type PlaceCongestion = { level: number | null; areaCode?: string }
 type Waypoint = {
   id: string
   location: LatLng
-  fixedIndex?: number       // 순번 고정. 없으면 유동
+  fixedIndex?: number // 순번 고정. 없으면 유동
   dwellMin: number
 }
 
 type ParkingLot = {
-  id: string                // 주차장 관리번호
+  id: string // 주차장 관리번호
   name: string
   location: LatLng
-  fee: FeeInfo | null       // null = 요금 정보 없음
+  fee: FeeInfo | null // null = 요금 정보 없음
   distanceToWaypointM: number
-  availability?: undefined  // MVP에서는 항상 없음
+  availability?: undefined // MVP에서는 항상 없음
 }
 
 type Stop = {
@@ -113,23 +133,27 @@ type Route = {
   scenario: Scenario
   legs: Leg[]
   stops: Stop[]
-  totals: Totals            // parkingCostPartial: boolean 포함
-  score: number             // 낮을수록 좋음
+  totals: Totals // parkingCostPartial: boolean 포함
+  score: number // 낮을수록 좋음
   reasons: string[]
 }
 ```
+
 모든 경로는 Leg[]와 Stop[]로 표현해 같은 방식으로 비교한다.
 
 ## 7. 핵심 흐름
+
 1. 사용자가 출발지, 도착지, 출발 시각, 경유지(최대 3)와 경유지별 체류시간을 입력, 필요 시 순번 고정(📌)
 2. 순서 최적화 (9장). 1위를 기본 순서로 확정
 3. 확정된 순서대로 경유지 하나씩 주차장 선택 화면: 지도에 경유지와 후보(최대 3, 요금·거리)를 표시하고 하나를 선택 → 다음 경유지 → 모두 선택하면 결과 화면
 4. 선택 확정 후 구간별 정밀 경로 계산, Leg 이어 붙이기
 5. 출발 시각부터 이동시간과 체류시간을 누적해 경유지별 도착/출발 시각과 최종 도착 시각 계산
 6. 경유지·도착지의 혼잡도 조회 → 점수화 → 추천 순위와 근거 표시
+
 - 결과 화면에서 순서를 바꾸면 주차장 선택은 초기화한다
 
 ## 8. 혼합 경로 규칙 (차량 유지형)
+
 - 차는 출발지에서 시작해 경유지마다 선택된 주차장에 주차한다
 - 사용자는 주차장에서 경유지까지 접근수단(도보 또는 대중교통)으로 다녀오고, 같은 주차장으로 돌아와 차로 다음 경유지 주차장으로 이동한다 (접근은 항상 왕복)
 - 경유지 방문 = [접근 Leg(access-out)] + [체류] + [복귀 Leg(access-back)]
@@ -143,6 +167,7 @@ type Route = {
 - 체류시간은 사용자 입력값이며 주차 요금 계산과 시각 누적에 사용한다
 
 ## 9. 순서 최적화
+
 - 출발지와 도착지는 고정. 경유지 최대 3개 → 최악 3! = 6가지. 브루트포스 (휴리스틱/OR-Tools 금지)
 - fixedIndex가 있는 경유지는 그 순번에 고정, 유동 경유지만 순열로 배치
 - 순서 비교는 카카오/네이버 자차 길찾기의 구간 소요시간으로 계산한다. 직선거리 근사 금지
@@ -152,6 +177,7 @@ type Route = {
 - 검증: 고정 순번 중복 시 에러, 전부 고정이면 최적화 생략
 
 ## 10. 주차장
+
 - 데이터 소스: 한국교통안전공단 주차정보 제공 API (공공데이터포털). 시설정보, 운영정보, 실시간 정보를 주차장 관리번호로 연결. 활용 신청에 심의승인이 필요하다
 - 반경 검색 파라미터가 없을 수 있으므로, 서울 주차장 시설정보를 배치로 받아 DB에 저장(하루 1회 갱신)하고 반경 검색은 DB에서 한다. 좌표 인덱스 사용
 - 운영정보(요금 등)가 있는 주차장만 fee를 채우고, 없으면 fee=null
@@ -161,15 +187,19 @@ type Route = {
 - 실시간 잔여석: `ParkingProvider.getAvailability(lotId)` 인터페이스만 정의하고 MVP에서는 "정보 없음"을 반환. 화면에도 표시하지 않는다. 나중에 실시간 provider가 붙어도 다른 모듈은 수정하지 않아야 한다
 
 ## 11. 혼잡도
+
 - 소스: 서울시 실시간 도시데이터 (서울 열린데이터광장). 주요 121곳만 제공. API는 한 번에 1개 장소만 호출 가능
 - 이 값은 "그 지역에 사람이 몰리는 정도"이며 이동 경로 위의 혼잡이 아니다. 이동 중 혼잡은 길찾기 결과(정체, 대중교통 정보)가 대신한다
 - 경유지/도착지 좌표가 121곳 영역(shapefile) 안이면 areaCode로 매핑, 밖이면 level=null ("정보 없음")
 - 응답에 최근 12시간 값과 향후 12시간 예측이 들어 있으므로, 장소코드별로 응답을 CONGESTION_CACHE_TTL_MIN(30분) 캐시하고 한 응답에서 도착 예정 시각의 예측값을 꺼내 쓴다. 121곳 전체를 주기적으로 수집하지 않고, 사용자 요청 시 필요한 장소만 호출한다
 - 도착 예정 시각이 예측 범위(향후 12시간)를 넘으면 level=null
-- 혼잡 단계 수와 응답 필드명은 실시간 도시데이터 매뉴얼로 확인해 config에 매핑한다 (공식 화면은 4단계, 앱 설명에는 5단계 표기가 있음)
+- 혼잡 단계는 **4단계로 확정**: 여유(0) / 보통(1) / 약간 붐빔(2) / 붐빔(3). 실제 응답의
+  AREA_CONGEST_LVL, FCST_CONGEST_LVL 문자열이 이 4단계다. config의 CONGEST_LEVELS에 매핑돼 있다.
+  응답은 XML(citydata_ppltn) 이며 예측은 1시간 간격. 시각은 KST로 해석한다.
 - 문화행사 정보는 MVP에서 사용하지 않는다
 
 ## 12. 점수
+
 - 종합점수(낮을수록 좋음) = 시간점수 + 비용점수 + 피로도점수 + 혼잡 감점, 앞의 세 항목에 성향 프리셋 가중치(시간 우선 / 비용 우선 / 체력 약함) 적용
 - 피로도 = 도보거리×a + 환승횟수×b + 서서 가는 시간×c + 운전 정체시간×d (가중치는 shared/config)
 - 혼잡 감점 = LEVEL_PENALTY[혼잡 단계, 도착 시각의 예측값] × SCENARIO_SENSITIVITY[시나리오]
@@ -180,15 +210,22 @@ type Route = {
 - 혼잡도 UI에는 "통계 기반 추정" 성격의 라벨을 함께 표시한다
 
 ## 13. 외부 API
-- 자차 길찾기: 카카오모빌리티 (네이버 대안). 다중 목적지 API 활용 가능
-- 대중교통 길찾기: 카카오 대중교통 길찾기 (2026-07 오픈). 승차 전/하차 후 도보 구간 상세는 응답에 없으므로 도보 경로 조회 API를 병행 호출한다
-- 도보: 카카오 도보 경로 조회 API
-- 장소 검색/좌표 변환: 카카오 로컬
-- 주차: 한국교통안전공단 주차정보 제공 API
-- 혼잡도: 서울 실시간 도시데이터
+
+- 자차 길찾기: 카카오모빌리티 (실물 연동 완료). 다중 목적지 API 활용 가능
+- 대중교통 길찾기: **ODsay 대중교통 길찾기(searchPubTransPathT)로 구현**. (카카오 대중교통은
+  유료라 채택하지 않음) ODsay 응답에 총시간·요금(payment)·환승·도보거리와 구간 상세(subPath)가
+  모두 들어있어, 별도 도보 API 병행 호출 없이 대중교통 경로를 한 번에 커버한다.
+- 도보: 카카오 도보 경로 조회 API (유료). 현재 미결제 상태라 접근 도보는 mock(직선거리 추정)로
+  대체. 대중교통 경로 안의 도보는 ODsay가 포함하므로 별도 도보 API가 필요 없다.
+- 장소 검색/좌표 변환: 카카오 로컬 (키워드 검색 실물 연동 완료)
+- 주차: 한국교통안전공단 주차정보 제공 API (B 담당, 미구현)
+- 혼잡도: 서울 실시간 도시데이터 (citydata_ppltn, 실물 연동 완료)
+- 개발 시 외부 API는 Vite dev 프록시(/api/kakao, /api/seoul, /api/odsay)로 호출해 CORS를 피하고
+  키를 브라우저에 노출하지 않는다. 키는 .env 에 두고 프록시가 서버에서 주입한다.
 - 각 API의 무료 쿼터와 약관(결과 저장/캐싱 제한, 지도 표시 의무)을 착수 전에 확인한다
 
 ## 14. 캐싱 규칙
+
 - 캐시는 provider 안이 아니라 래퍼로 구현: `CachedRouteProvider(KakaoProvider)`
 - 경로 키: `route:{mode}:{출발좌표}:{도착좌표}:{시간대}` (좌표는 소수점 3~4자리 반올림, 시간은 30분 버킷)
 - TTL: 자차 10~30분 / 대중교통 수 시간 / 혼잡도 30분(장소코드 키) / 주차장 정보는 DB
@@ -197,6 +234,7 @@ type Route = {
 - 캐시 히트/미스와 일일 API 호출량 카운터를 기록하고 한도 근처에서 경고
 
 ## 15. 테스트 / 검증
+
 - 핵심 로직은 테스트 먼저 작성: optimizer, scoring(혼잡 감점, 정보 없음 처리), timeline, 캐시 키, 주차 후보 선정(요금 없음 처리)
 - 외부 API는 테스트에서 mock 처리
 - 기능 하나가 끝날 때마다 테스트 통과 확인 후 git 커밋
@@ -204,6 +242,7 @@ type Route = {
 - CI: PR마다 lint, 타입 체크, 테스트 자동 실행
 
 ## 16. 개발 순서
+
 1. 단일 목적지 자차 vs 대중교통 비교
 2. 주차 후보 표시와 선택 (지도, 요금·거리, 요금 없음 처리)
 3. 혼합 경로 (접근수단 비교)
@@ -212,6 +251,7 @@ type Route = {
 6. (이후) 실시간 주차 연동, 문화행사 정보
 
 ## 17. 금지 사항
+
 - 크롤링/스크래핑, provider 밖의 외부 API 직접 호출
 - 컴포넌트에 색/폰트 하드코딩
 - 요청하지 않은 리팩터링, 범위 밖 기능 추가
@@ -219,6 +259,7 @@ type Route = {
 - 테스트 없이 핵심 로직 변경
 
 ## 18. 확인 필요 (착수 전)
+
 - 주차정보 API 기술문서: 요금 필드 구조, 서울 지역 필터, 페이지 크기
 - 실시간 도시데이터 매뉴얼: 혼잡 단계 수, 예측 필드, 121곳 목록과 영역 파일 적재
 - 카카오 대중교통/도보 API의 쿼터와 약관

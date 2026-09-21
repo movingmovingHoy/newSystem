@@ -1,5 +1,9 @@
 # AI 요청 스펙 (복붙용)
 
+> **진행 상태 (2026-09 기준)**: [뼈대]와 [A 담당]은 구현 완료(테스트 통과, 일부 실물 API 연동).
+> 현재 코드 상태와 바뀐 점의 최신 정리는 루트의 `HANDOFF.md`를 참고. 남은 작업은 [B 담당].
+> 이 문서의 [A 담당] 항목은 당시 계획이며, 실제 구현과 다른 부분은 대괄호 주석과 HANDOFF.md로 보완했다.
+
 전제: 프로젝트 루트에 AGENTS.md와 CLAUDE.md(내용은 `@AGENTS.md` 한 줄)를 둔다.
 Claude가 아닌 AI 도구는 아래 [공통]의 "AGENTS.md를 먼저 읽고"가 그 역할을 한다.
 순서: 1명이 [뼈대]를 먼저 실행하고 커밋 → 나머지 1명이 pull → 각자 [공통] + 자기 담당(A 또는 B)을 붙여넣기.
@@ -9,6 +13,7 @@ Claude가 아닌 AI 도구는 아래 [공통]의 "AGENTS.md를 먼저 읽고"가
 ## [공통] 모든 작업 앞에 붙이기
 
 프로젝트 루트의 AGENTS.md를 먼저 끝까지 읽고 모든 규칙(범위, 폴더 구조, 타입, 금지 사항)을 따라라.
+
 - 아래에 적힌 내 담당 폴더만 수정한다. 그 밖의 파일과 shared/types는 수정하지 말고, 필요하면 먼저 나에게 물어본다
 - 코드를 쓰기 전에 만들거나 바꿀 파일과 각 역할을 먼저 보여주고, 내가 OK하면 구현한다
 - 핵심 로직은 테스트를 먼저 쓰고, 기능 하나가 끝나면 테스트 통과 여부를 알려준다
@@ -19,6 +24,7 @@ Claude가 아닌 AI 도구는 아래 [공통]의 "AGENTS.md를 먼저 읽고"가
 ## [뼈대] 한 명만, 가장 먼저
 
 AGENTS.md 4장 폴더 구조대로 빈 뼈대를 만들어라.
+
 1. Node + TypeScript(strict) + Vitest 프로젝트 초기화
 2. shared/types에 AGENTS.md 6장의 타입을 그대로 작성
 3. shared/config에 AGENTS.md 5장, 10~12장의 상수와 가중치를 기본값으로 정의
@@ -30,10 +36,11 @@ AGENTS.md 4장 폴더 구조대로 빈 뼈대를 만들어라.
 
 ## [A 담당] 경로 + 점수 + 혼잡도
 
-담당 폴더: features/routing/*, features/congestion/*, shared/cache
+담당 폴더: features/routing/_, features/congestion/_, shared/cache
 
 작업:
-1. routing/providers: 자차(카카오모빌리티), 대중교통(카카오 대중교통), 도보 provider 구현. 처음에는 mock, 이후 실제 API. 대중교통은 승하차 전후 도보 구간이 없으므로 도보 provider와 병행 호출해 합친다
+
+1. routing/providers: 자차(카카오모빌리티), 대중교통, 도보 provider 구현. 처음에는 mock, 이후 실제 API. [구현 결과: 대중교통은 카카오 대신 ODsay로 채택 — ODsay가 도보 구간까지 포함해 별도 병행 호출 불필요. 도보는 카카오 유료라 mock 유지]
 2. shared/cache: CachedRouteProvider 래퍼 (AGENTS.md 14장). 반올림 키, 시간 버킷, 동시 요청 합치기, 히트/미스 카운터
 3. routing/optimizer: 출발·도착 고정, 경유지 최대 3개 브루트포스, 고정 순번 처리, 구간은 실제 자차 길찾기 시간으로 (AGENTS.md 9장)
 4. routing/strategies: car-direct, mixed(경유지별 접근수단 비교, 왕복 블록), transit-only (AGENTS.md 8장)
@@ -42,6 +49,7 @@ AGENTS.md 4장 폴더 구조대로 빈 뼈대를 만들어라.
 7. routing/scoring: 종합점수, 피로도, 혼잡 감점(단계 × 시나리오 민감도), 정보 없음은 감점 0, 항목별 근거 문구(reasons), 성향 프리셋
 
 테스트 (먼저 작성):
+
 - optimizer: 고정 0개/1개/전부 고정/순번 중복 에러, 순열 6개 비교
 - timeline: 누적, 체류시간 변경 반영, 자정 넘김
 - scoring: 성향 프리셋별 순위 변화, 혼잡 감점이 시나리오별로 다르게 적용, level=null이면 감점 0, 주차비 정보 없음은 제외하고 parkingCostPartial 표시
@@ -54,10 +62,11 @@ AGENTS.md 4장 폴더 구조대로 빈 뼈대를 만들어라.
 
 ## [B 담당] 주차 + UI
 
-담당 폴더: features/parking/*, ui/*
+담당 폴더: features/parking/_, ui/_
 A가 끝나기 전에는 mock Route[]로 화면을 만든다.
 
 작업:
+
 1. ui/tokens: 색, 폰트, 간격, 모서리 값을 정의하고 컴포넌트는 토큰만 참조한다. 폰트와 분위기: (여기에 원하는 방향을 적기. 예: 가독성 좋은 산세리프, 밝고 깔끔한 톤)
 2. parking/ingest: 한국교통안전공단 주차정보 API에서 서울 주차장 시설정보와 운영정보를 받아 DB에 저장하는 배치(하루 1회). 처음에는 샘플 데이터로 진행. 요금이 없으면 fee=null
 3. parking/providers: ParkingProvider 인터페이스(search, getAvailability). getAvailability는 MVP에서 항상 "정보 없음"
@@ -70,6 +79,7 @@ A가 끝나기 전에는 mock Route[]로 화면을 만든다.
    - 실시간 잔여석 자리는 구조만 열어두고 지금은 표시하지 않는다
 
 테스트 (먼저 작성):
+
 - finder: 반경 검색, 후보 3개 선정, 요금 없는 주차장 포함, 요금 있는 곳이 없을 때 최저요금 슬롯 비움, 결과 0개 처리
 - 컴포넌트: 경유지 4개째 추가 막힘, 고정 순번 중복 방지, 주차 선택 순차 진행, 요금 없음/혼잡 정보 없음 표시
 
