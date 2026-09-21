@@ -6,13 +6,14 @@
  *
  * 주차장 선택은 아직 없으므로(=B 담당), 경유지 근처에 임시 주차 좌표를 만들어 넣는다.
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { LatLng, Route, Waypoint, TransitStep } from '@shared/types'
 import type { Preference } from '@shared/config'
 import {
   planRoutes,
   rankRoutes,
   RANK_LABELS,
+  summarizeRoutes,
   type PlanWaypoint,
   type RankCriterion,
 } from '@features/routing'
@@ -59,44 +60,60 @@ function PlaceSearch({
   const [results, setResults] = useState<PlaceResult[]>([])
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  // 선택 확정되면 자동완성 목록을 닫는다
+  const [open, setOpen] = useState(true)
 
-  const search = async () => {
-    setBusy(true)
-    setErr(null)
-    try {
-      setResults(await searchPlaces(q))
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e))
-    } finally {
-      setBusy(false)
+  // 입력하는 대로 자동 검색 (디바운스 350ms)
+  useEffect(() => {
+    if (!open) return
+    const term = q.trim()
+    if (term.length < 2) {
+      setResults([])
+      return
     }
-  }
+    const timer = setTimeout(async () => {
+      setBusy(true)
+      setErr(null)
+      try {
+        setResults(await searchPlaces(term))
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : String(e))
+      } finally {
+        setBusy(false)
+      }
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [q, open])
 
   return (
     <div style={{ ...box, display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <div style={{ display: 'flex', gap: 4 }}>
-        <input
-          placeholder="출발지 검색 (예: 서울시청)"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && search()}
-          style={{ flex: 1 }}
-        />
-        <button onClick={search} disabled={busy}>
-          {busy ? '...' : '검색'}
-        </button>
-      </div>
+      <input
+        placeholder="출발지 검색 (예: 서울시청) — 입력하면 추천이 뜹니다"
+        value={q}
+        onChange={(e) => {
+          setQ(e.target.value)
+          setOpen(true)
+        }}
+      />
+      {busy && (
+        <span style={{ color: 'var(--color-text-muted)' }}>검색 중...</span>
+      )}
       {err && <span style={{ color: 'var(--color-danger)' }}>{err}</span>}
       {value && <span>선택: {value.label}</span>}
-      {results.map((r, i) => (
-        <button
-          key={i}
-          onClick={() => onPick({ label: r.name, location: r.location })}
-          style={{ textAlign: 'left' }}
-        >
-          {r.name} <small>{r.address}</small>
-        </button>
-      ))}
+      {open &&
+        results.map((r, i) => (
+          <button
+            key={i}
+            onClick={() => {
+              onPick({ label: r.name, location: r.location })
+              setQ(r.name)
+              setOpen(false)
+            }}
+            style={{ textAlign: 'left' }}
+          >
+            {r.name} <small>{r.address}</small>
+          </button>
+        ))}
     </div>
   )
 }
@@ -293,7 +310,19 @@ export function DevPlanCheck() {
           value={departAt}
           onChange={(e) => setDepartAt(e.target.value)}
           style={box}
-        />
+        />{' '}
+        <button
+          type="button"
+          onClick={() => {
+            const now = new Date()
+            const pad = (n: number) => String(n).padStart(2, '0')
+            setDepartAt(
+              `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`,
+            )
+          }}
+        >
+          현재
+        </button>
       </label>
 
       <label>
@@ -413,6 +442,24 @@ export function DevPlanCheck() {
           <strong>확정 순서:</strong>{' '}
           {order.length ? order.join(' → ') : '(경유지 없음)'}
         </p>
+      )}
+      {routes && routes.length > 0 && (
+        <div
+          style={{
+            ...box,
+            background: 'var(--color-surface)',
+            borderColor: 'var(--color-primary)',
+          }}
+        >
+          <div style={{ fontWeight: 600 }}>
+            {summarizeRoutes(routes).headline}
+          </div>
+          {summarizeRoutes(routes).details.length > 0 && (
+            <div style={{ color: 'var(--color-text-muted)' }}>
+              {summarizeRoutes(routes).details.join(' · ')}
+            </div>
+          )}
+        </div>
       )}
       {routes && (
         <p style={{ color: 'var(--color-text-muted)' }}>

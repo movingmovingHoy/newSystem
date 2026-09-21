@@ -1,4 +1,4 @@
-import type { Leg } from '@shared/types'
+import type { Leg, LatLng } from '@shared/types'
 import type { RouteProvider, RouteQuery } from './types'
 
 /**
@@ -21,7 +21,29 @@ type KakaoDirectionsResponse = {
       distance?: number
       fare?: { taxi?: number; toll?: number }
     }
+    sections?: Array<{
+      roads?: Array<{
+        // 도로 좌표. [lng0, lat0, lng1, lat1, ...] 평면 배열
+        vertexes?: number[]
+      }>
+    }>
   }>
+}
+
+type KakaoSection = { roads?: Array<{ vertexes?: number[] }> }
+
+/** sections[].roads[].vertexes(평면 배열)를 지도용 LatLng[] 폴리라인으로 편다 */
+function extractPath(sections: KakaoSection[] | undefined): LatLng[] {
+  const path: LatLng[] = []
+  for (const sec of sections ?? []) {
+    for (const road of sec.roads ?? []) {
+      const v = road.vertexes ?? []
+      for (let i = 0; i + 1 < v.length; i += 2) {
+        path.push({ lng: v[i], lat: v[i + 1] })
+      }
+    }
+  }
+  return path
 }
 
 function addSeconds(iso: string, seconds: number): string {
@@ -63,6 +85,7 @@ export class KakaoCarProvider implements RouteProvider {
 
     const durationSec = route.summary?.duration ?? 0
     const toll = route.summary?.fare?.toll ?? 0
+    const path = extractPath(route.sections)
 
     const leg: Leg = {
       mode: 'car',
@@ -75,6 +98,7 @@ export class KakaoCarProvider implements RouteProvider {
       walkDistanceM: 0,
       transfers: 0,
       fatigue: 0, // 정체 기반 피로도는 scoring 단위에서 다룬다
+      ...(path.length > 0 ? { path } : {}),
     }
     return [leg]
   }

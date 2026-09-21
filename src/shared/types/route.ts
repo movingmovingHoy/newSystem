@@ -41,6 +41,8 @@ export type Leg = {
   fatigue: number
   /** 대중교통 구간 상세 (표시용, 선택적). 계산에는 쓰지 않는다. */
   transitDetail?: TransitStep[]
+  /** 지도에 그릴 경로 좌표(폴리라인). 표시용, 선택적. 자차는 실제 도로 좌표. */
+  path?: LatLng[]
 }
 
 export type Scenario = 'car-direct' | 'mixed' | 'transit-only'
