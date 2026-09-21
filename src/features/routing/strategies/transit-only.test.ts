@@ -167,4 +167,41 @@ describe('buildTransitOnlyRoute', () => {
     // 1400 + 1400 = 2800
     expect(route.totals.cost).toBe(2800)
   })
+
+  it('뒤 구간은 앞 구간 이동+체류를 누적한 시각으로 조회한다', async () => {
+    // provider가 받은 departAt을 기록하는 provider
+    const seenDepartAt: string[] = []
+    const provider: RouteProvider = {
+      mode: 'transit',
+      async route(q: RouteQuery): Promise<Leg[]> {
+        seenDepartAt.push(q.departAt!)
+        return [
+          {
+            mode: 'subway',
+            from: q.from,
+            to: q.to,
+            departAt: q.departAt!,
+            arriveAt: q.departAt!,
+            durationSec: 600, // 10분
+            cost: 1400,
+            walkDistanceM: 0,
+            transfers: 0,
+            fatigue: 0,
+          },
+        ]
+      },
+    }
+    // 출발 09:00, 경유지 A 체류 30분
+    await buildTransitOnlyRoute(provider, {
+      origin,
+      destination,
+      orderedWaypoints: [wp('A', 37.52, 127.0, 30)],
+      departAt: '2026-09-21T09:00:00.000Z',
+      preference: 'time',
+    })
+    // 구간1(집→A): 09:00 조회
+    expect(seenDepartAt[0]).toBe('2026-09-21T09:00:00.000Z')
+    // 구간2(A→도착): 09:00 + 이동10분 + 체류30분 = 09:40 조회
+    expect(seenDepartAt[1]).toBe('2026-09-21T09:40:00.000Z')
+  })
 })

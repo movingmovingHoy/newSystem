@@ -47,16 +47,25 @@ export async function buildTransitOnlyRoute(
     destination,
   ]
 
-  // 각 구간을 대중교통으로 이어 붙인다. 시각은 timeline 으로 다시 누적하므로
-  // 여기서는 소요시간/거리 등 Leg 속성만 필요하다.
+  // 각 구간을 순차로 조회한다. 뒤 구간은 앞 구간의 이동+체류를 누적한
+  // "실제 타는 시각"을 출발 시각으로 넘겨 그 시각대의 대중교통 결과를 얻는다
+  // (AGENTS.md 9장의 누적 시각 반영, MVP 이후). ODsay는 출발 시각을 반영한다.
   const legs: Leg[] = []
+  let cursor = departAt // 현재 구간을 타는 시각 (ISO)
   for (let i = 0; i < points.length - 1; i++) {
     const segment = await transit.route({
       from: points[i],
       to: points[i + 1],
-      departAt,
+      departAt: cursor,
     })
     legs.push(...segment)
+
+    // 다음 구간 조회 시각 = 이 구간 이동시간 + (경유지면) 체류시간 누적
+    const segSec = segment.reduce((s, l) => s + l.durationSec, 0)
+    const dwellMin = orderedWaypoints[i]?.dwellMin ?? 0
+    cursor = new Date(
+      new Date(cursor).getTime() + (segSec + dwellMin * 60) * 1000,
+    ).toISOString()
   }
 
   // 서울시 환승요금 규칙 적용 (AGENTS.md 8·13장).
