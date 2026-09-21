@@ -25,6 +25,16 @@ export default tseslint.config([
         'warn',
         { max: 300, skipBlankLines: true, skipComments: true },
       ],
+      // _ 접두사가 붙은 인자/변수는 "의도적으로 안 씀"으로 보고 허용
+      // (인터페이스 구현상 시그니처는 맞춰야 하지만 본문에서 안 쓰는 경우)
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
     },
   },
   {
