@@ -7,13 +7,20 @@
  * 주차장 선택은 아직 없으므로(=B 담당), 경유지 근처에 임시 주차 좌표를 만들어 넣는다.
  */
 import { useState } from 'react'
-import type { LatLng, Route, Waypoint } from '@shared/types'
+import type { LatLng, Route, Waypoint, TransitStep } from '@shared/types'
 import type { Preference } from '@shared/config'
-import { planRoutes, type PlanWaypoint } from '@features/routing'
+import {
+  planRoutes,
+  rankRoutes,
+  RANK_LABELS,
+  type PlanWaypoint,
+  type RankCriterion,
+} from '@features/routing'
 import {
   KakaoCarProvider,
   KakaoWalkProvider,
   KakaoTransitProvider,
+  OdsayTransitProvider,
   MockWalkProvider,
   MockTransitProvider,
   searchPlaces,
@@ -137,12 +144,17 @@ export function DevPlanCheck() {
   })
   const [preference, setPreference] = useState<Preference>('time')
   const [useCongestion, setUseCongestion] = useState(true)
-  // 도보/대중교통은 유료 API라 기본은 mock. 승인 후 실물로 켜서 확인.
-  const [mockWalkTransit, setMockWalkTransit] = useState(true)
+  // 대중교통 provider 선택: mock / odsay(실물,무료) / kakao(실물,유료)
+  const [transitSource, setTransitSource] = useState<
+    'mock' | 'odsay' | 'kakao'
+  >('odsay')
+  // 도보는 유료(카카오)라 기본 mock.
+  const [mockWalk, setMockWalk] = useState(true)
   const [waypoints, setWaypoints] = useState<WpForm[]>([])
 
   const [order, setOrder] = useState<string[] | null>(null)
   const [routes, setRoutes] = useState<Route[] | null>(null)
+  const [criterion, setCriterion] = useState<RankCriterion>('recommended')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -168,12 +180,13 @@ export function DevPlanCheck() {
 
       const providers = {
         car: new KakaoCarProvider(),
-        walk: mockWalkTransit
-          ? new MockWalkProvider()
-          : new KakaoWalkProvider(),
-        transit: mockWalkTransit
-          ? new MockTransitProvider()
-          : new KakaoTransitProvider(),
+        walk: mockWalk ? new MockWalkProvider() : new KakaoWalkProvider(),
+        transit:
+          transitSource === 'mock'
+            ? new MockTransitProvider()
+            : transitSource === 'odsay'
+              ? new OdsayTransitProvider()
+              : new KakaoTransitProvider(),
       }
 
       const planWps: PlanWaypoint[] = waypoints
@@ -237,6 +250,16 @@ export function DevPlanCheck() {
     }
   }
 
+  // 내부 score는 낮을수록 좋음(AGENTS.md). 화면에는 높을수록 좋게 뒤집어 표시.
+  const displayScore = (score: number) => Math.max(0, 1000 - score).toFixed(1)
+  const describeStep = (s: TransitStep): string => {
+    if (s.type === 'walk') return `도보 ${s.minutes}분 (${s.distanceM}m)`
+    const kind = s.type === 'subway' ? '지하철' : '버스'
+    const line = s.line ? ` ${s.line}` : ''
+    const seg = s.from && s.to ? ` ${s.from}→${s.to}` : ''
+    const stops = s.stationCount != null ? ` ${s.stationCount}개역` : ''
+    return `${kind}${line}${seg}${stops} · ${s.minutes}분`
+  }
   const min = (sec: number) => `${Math.round(sec / 60)}분`
   const won = (n: number) => `${n.toLocaleString()}원`
   const hhmm = (iso: string) =>
@@ -296,12 +319,27 @@ export function DevPlanCheck() {
       </label>
 
       <label>
+        대중교통{' '}
+        <select
+          value={transitSource}
+          onChange={(e) =>
+            setTransitSource(e.target.value as 'mock' | 'odsay' | 'kakao')
+          }
+          style={box}
+        >
+          <option value="odsay">ODsay (실물, 무료)</option>
+          <option value="mock">mock</option>
+          <option value="kakao">카카오 (실물, 유료)</option>
+        </select>
+      </label>
+
+      <label>
         <input
           type="checkbox"
-          checked={mockWalkTransit}
-          onChange={(e) => setMockWalkTransit(e.target.checked)}
+          checked={mockWalk}
+          onChange={(e) => setMockWalk(e.target.checked)}
         />{' '}
-        도보/대중교통 mock 사용 (유료 API 미승인 시 켜기)
+        도보 mock 사용 (카카오 도보는 유료)
       </label>
 
       <div
@@ -378,37 +416,79 @@ export function DevPlanCheck() {
       )}
       {routes && (
         <p style={{ color: 'var(--color-text-muted)' }}>
-          점수는 낮을수록 좋음 (시간+비용+피로도+혼잡감점). 1위가 가장 좋은
-          경로.
+          점수는 높을수록 좋음 (시간+비용+피로도+혼잡이 적을수록 높은 점수).
+          1위가 가장 좋은 경로.
         </p>
       )}
 
-      {routes?.map((r, i) => (
-        <div key={i} style={{ ...box, background: 'var(--color-surface)' }}>
-          <div style={{ fontWeight: 600 }}>
-            {i + 1}위 · {r.scenario} · 점수 {r.score.toFixed(1)}
-          </div>
-          <div>
-            총 {min(r.totals.durationSec)} · {won(r.totals.cost)} · 도보{' '}
-            {r.totals.walkDistanceM}m · 환승 {r.totals.transfers}
-            {r.totals.parkingCostPartial ? ' · 주차비 일부 정보 없음' : ''}
-          </div>
-          {r.stops.length > 0 && (
-            <ul style={{ margin: 'var(--space-1) 0' }}>
-              {r.stops.map((s, j) => (
-                <li key={j}>
-                  {s.waypointId}: {hhmm(s.arriveAt)} 도착 → {hhmm(s.departAt)}{' '}
-                  출발 · 접근 {s.accessMode ?? '-'} · 혼잡{' '}
-                  {s.congestion.level ?? '정보 없음'}
-                </li>
-              ))}
-            </ul>
-          )}
-          <div style={{ color: 'var(--color-text-muted)' }}>
-            {r.reasons.join(' / ')}
-          </div>
+      {routes && (
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          {(
+            [
+              'recommended',
+              'fastest',
+              'cheapest',
+              'leastWalk',
+            ] as RankCriterion[]
+          ).map((c) => (
+            <button
+              key={c}
+              onClick={() => setCriterion(c)}
+              style={{
+                ...box,
+                background:
+                  criterion === c
+                    ? 'var(--color-primary)'
+                    : 'var(--color-surface)',
+                color:
+                  criterion === c
+                    ? 'var(--color-primary-contrast)'
+                    : 'var(--color-text)',
+                cursor: 'pointer',
+              }}
+            >
+              {RANK_LABELS[c]}
+            </button>
+          ))}
         </div>
-      ))}
+      )}
+
+      {routes &&
+        rankRoutes(routes, criterion).map((r, i) => (
+          <div key={i} style={{ ...box, background: 'var(--color-surface)' }}>
+            <div style={{ fontWeight: 600 }}>
+              {i + 1}위 · {r.scenario} · 점수 {displayScore(r.score)}
+            </div>
+            <div>
+              총 {min(r.totals.durationSec)} · {won(r.totals.cost)} · 도보{' '}
+              {r.totals.walkDistanceM}m · 환승 {r.totals.transfers}
+              {r.totals.parkingCostPartial ? ' · 주차비 일부 정보 없음' : ''}
+            </div>
+            {r.legs.some((l) => l.transitDetail?.length) && (
+              <ol style={{ margin: 'var(--space-1) 0' }}>
+                {r.legs.flatMap((l, li) =>
+                  (l.transitDetail ?? []).map((step, si) => (
+                    <li key={`${li}-${si}`}>{describeStep(step)}</li>
+                  )),
+                )}
+              </ol>
+            )}
+            {r.stops.length > 0 && (
+              <ul style={{ margin: 'var(--space-1) 0' }}>
+                {r.stops.map((s, j) => (
+                  <li key={j}>
+                    {s.waypointId}: {hhmm(s.arriveAt)} 도착 → {hhmm(s.departAt)}{' '}
+                    출발 · 접근 {s.accessMode ?? '-'} · 혼잡{' '}
+                    {s.congestion.level ?? '정보 없음'}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div style={{ color: 'var(--color-text-muted)' }}>
+              {r.reasons.join(' / ')}
+            </div>
+          </div>
+        ))}
     </section>
   )
 }

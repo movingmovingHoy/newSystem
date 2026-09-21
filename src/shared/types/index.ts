@@ -6,6 +6,7 @@ export type { LatLng } from './geo'
 export type {
   Mode,
   Leg,
+  TransitStep,
   Scenario,
   Totals,
   Route,

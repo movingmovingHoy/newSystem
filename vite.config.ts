@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const kakaoRestKey = env.KAKAO_REST_API_KEY ?? ''
   const seoulKey = env.SEOUL_CITYDATA_KEY ?? ''
+  const odsayKey = env.ODSAY_KEY ?? ''
 
   return {
     plugins: [react()],
@@ -53,6 +54,18 @@ export default defineConfig(({ mode }) => {
           target: 'http://openapi.seoul.go.kr:8088',
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api\/seoul/, `/${seoulKey}/xml`),
+        },
+        // ODsay 대중교통 길찾기. 인증키는 URL 파라미터(apiKey)로 서버에서 삽입한다.
+        // 프론트: /api/odsay/searchPubTransPathT?SX=..&SY=..&EX=..&EY=..
+        //   → https://api.odsay.com/v1/api/searchPubTransPathT?...&apiKey={KEY}
+        '/api/odsay': {
+          target: 'https://api.odsay.com',
+          changeOrigin: true,
+          rewrite: (path) => {
+            const rest = path.replace(/^\/api\/odsay/, '/v1/api')
+            const sep = rest.includes('?') ? '&' : '?'
+            return `${rest}${sep}apiKey=${encodeURIComponent(odsayKey)}`
+          },
         },
       },
     },
