@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "build:areas": "node scripts/build-areas.mjs",
     "prepare": "husky"
   },
   "dependencies": {
@@ -34,6 +35,7 @@
     "lint-staged": "^15.5.2",
     "lru-cache": "^11.1.0",
     "prettier": "^3.6.2",
+    "shapefile": "^0.6.6",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.44.1",
     "vite": "^7.1.7",

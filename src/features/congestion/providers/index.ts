@@ -1,6 +1,2 @@
-export type {
-  CongestionProvider,
-  CongestionResponse,
-  CongestionForecastPoint,
-} from './types'
+export type { CongestionProvider } from './types'
 export { MockCongestionProvider } from './mock'

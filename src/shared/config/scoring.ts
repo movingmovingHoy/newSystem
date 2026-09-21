@@ -31,6 +31,20 @@ export const FATIGUE_WEIGHTS = {
 } as const
 
 /**
+ * 서울시 실시간 도시데이터 혼잡 단계. 응답의 CONGEST_LVL 문자열이 이 4단계다.
+ * (공식 화면 4단계 확인: 여유/보통/약간 붐빔/붐빔)
+ * 인덱스: 0 여유, 1 보통, 2 약간 붐빔, 3 붐빔
+ */
+export const CONGEST_LEVELS = ['여유', '보통', '약간 붐빔', '붐빔'] as const
+export type CongestLevelName = (typeof CONGEST_LEVELS)[number]
+
+/** 도시데이터 문자열 → 단계 인덱스. 알 수 없는 문자열이면 null */
+export function congestLevelIndex(name: string): number | null {
+  const idx = CONGEST_LEVELS.indexOf(name as CongestLevelName)
+  return idx === -1 ? null : idx
+}
+
+/**
  * 혼잡 단계별 감점. 도착 시각 예측값의 단계 인덱스로 조회.
  * 단계: 0 여유, 1 보통, 2 약간 붐빔, 3 붐빔 (config에서 관리, 튜닝 대상)
  * level=null 이면 감점 0 (조회 자체를 하지 않음).
