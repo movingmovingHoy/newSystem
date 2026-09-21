@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => {
   // 브라우저 번들에는 절대 포함하지 않는다 (VITE_ 접두사가 없으므로 노출 안 됨).
   const env = loadEnv(mode, process.cwd(), '')
   const kakaoRestKey = env.KAKAO_REST_API_KEY ?? ''
+  const seoulKey = env.SEOUL_CITYDATA_KEY ?? ''
 
   return {
     plugins: [react()],
@@ -44,6 +45,14 @@ export default defineConfig(({ mode }) => {
           headers: kakaoRestKey
             ? { Authorization: `KakaoAK ${kakaoRestKey}` }
             : undefined,
+        },
+        // 서울 실시간 도시데이터. 인증키가 URL 경로에 들어가므로 rewrite로 삽입한다.
+        // 프론트: /api/seoul/citydata_ppltn/1/5/{장소명}
+        //   → http://openapi.seoul.go.kr:8088/{KEY}/xml/citydata_ppltn/1/5/{장소명}
+        '/api/seoul': {
+          target: 'http://openapi.seoul.go.kr:8088',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/seoul/, `/${seoulKey}/xml`),
         },
       },
     },

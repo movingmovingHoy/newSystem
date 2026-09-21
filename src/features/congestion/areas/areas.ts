@@ -65,3 +65,12 @@ export function matchArea(loc: LatLng): string | null {
   }
   return null
 }
+
+const AREA_NAME_BY_CODE = new Map(
+  features.map((f) => [f.properties.areaCode, f.properties.areaName]),
+)
+
+/** areaCode → 장소명(areaName). 서울 도시데이터는 장소명으로 요청한다. 없으면 null */
+export function areaNameOf(areaCode: string): string | null {
+  return AREA_NAME_BY_CODE.get(areaCode) ?? null
+}
