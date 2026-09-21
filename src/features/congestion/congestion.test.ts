@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { CongestionService } from './congestion'
 import type { CongestionProvider } from './providers'
+import { formatKst } from './calculator'
 
 /**
  * CongestionService: 좌표 + 도착시각 → PlaceCongestion { level, areaCode? }
@@ -19,13 +20,10 @@ function makeSpyProvider(): CongestionProvider & { calls: number } {
     calls: 0,
     async fetchRaw(areaCode: string): Promise<string> {
       p.calls += 1
-      // 도착시각 근처(현재+1h)에 "붐빔" 예측을 주는 XML
-      const now = new Date()
-      const pad = (n: number) => String(n).padStart(2, '0')
-      const fmt = (d: Date) =>
-        `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
-      const t1 = new Date(now.getTime() + 60 * 60 * 1000)
-      return `<Map><SeoulRtd.citydata_ppltn><AREA_CD>${areaCode}</AREA_CD><AREA_CONGEST_LVL>보통</AREA_CONGEST_LVL><PPLTN_TIME>${fmt(now)}</PPLTN_TIME><FCST_PPLTN><FCST_PPLTN><FCST_TIME>${fmt(t1)}</FCST_TIME><FCST_CONGEST_LVL>붐빔</FCST_CONGEST_LVL></FCST_PPLTN></FCST_PPLTN></SeoulRtd.citydata_ppltn></Map>`
+      // 도착시각 근처(현재+1h)에 "붐빔" 예측을 주는 XML. 시각은 KST 고정.
+      const nowMs = Date.now()
+      const t1Ms = nowMs + 60 * 60 * 1000
+      return `<Map><SeoulRtd.citydata_ppltn><AREA_CD>${areaCode}</AREA_CD><AREA_CONGEST_LVL>보통</AREA_CONGEST_LVL><PPLTN_TIME>${formatKst(nowMs)}</PPLTN_TIME><FCST_PPLTN><FCST_PPLTN><FCST_TIME>${formatKst(t1Ms)}</FCST_TIME><FCST_CONGEST_LVL>붐빔</FCST_CONGEST_LVL></FCST_PPLTN></FCST_PPLTN></SeoulRtd.citydata_ppltn></Map>`
     },
   }
   return p

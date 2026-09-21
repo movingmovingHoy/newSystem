@@ -28,6 +28,25 @@ function tagValue(xml: string, tag: string): string | null {
   return m ? m[1].trim() : null
 }
 
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000
+
+/**
+ * epoch ms → 서울 도시데이터 형식 "YYYY-MM-DD HH:mm" (KST).
+ * 실행 환경 타임존과 무관하게 항상 KST로 포맷한다 (UTC+9로 옮겨 UTC 파트를 읽음).
+ */
+export function formatKst(ms: number): string {
+  const d = new Date(ms + KST_OFFSET_MS)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(
+    d.getUTCDate(),
+  )} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`
+}
+
+/** KST 기준 "시(hour)" (0~23). 시간대별 혼잡 단계 생성 등에 쓴다. */
+export function kstHour(ms: number): number {
+  return new Date(ms + KST_OFFSET_MS).getUTCHours()
+}
+
 /** "YYYY-MM-DD HH:mm" (KST) → epoch ms */
 function parseKst(s: string | null): number | null {
   if (!s) return null
