@@ -1,0 +1,91 @@
+/**
+ * 디자인 토큰. AGENTS.md 5장: 색·폰트·간격은 여기서만 정의한다.
+ * 컴포넌트는 이 CSS 변수만 참조하고 값을 하드코딩하지 않는다.
+ * 분위기: 가독성 좋은 산세리프, 밝고 깔끔한 톤 (기본값, 이후 [B 담당]이 조정)
+ */
+:root {
+  /* 색 */
+  --color-bg: #ffffff;
+  --color-surface: #f5f7fa;
+  --color-text: #1a1d21;
+  --color-text-muted: #6b7280;
+  --color-primary: #2563eb;
+  --color-primary-contrast: #ffffff;
+  --color-border: #e5e7eb;
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+
+  /* 폰트 */
+  --font-sans:
+    'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.25rem;
+  --font-size-xl: 1.5rem;
+
+  /* 간격 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* 모서리 */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  font-family: var(--font-sans);
+}
+
+/* B 담당 정식 화면 토큰 */
+:root {
+  --color-bg: #f6f7f2;
+  --color-surface: #ffffff;
+  --color-text: #203e36;
+  --color-text-muted: #68776e;
+  --color-primary: #24694f;
+  --color-border: #dbe3da;
+  --color-soft: #edf3e9;
+  --color-accent: #dcebb8;
+  --color-map: #e9eee3;
+  --color-grid: #d6dfd0;
+  --color-map-line: #6b927f;
+  --color-notice-bg: #fff5df;
+  --color-notice-text: #795d24;
+  --color-danger-bg: #fff0ed;
+  --font-size-xs: 0.75rem;
+  --font-size-hero: clamp(2.25rem, 4vw, 3.65rem);
+  --font-size-heading: 1.65rem;
+  --font-size-metric: 2rem;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
+  --line-height: 1.6;
+  --tracking-tight: -0.045em;
+  --tracking-wide: 0.12em;
+  --space-0: 0;
+  --space-7: 40px;
+  --space-8: 48px;
+  --space-9: 64px;
+  --radius-pill: 999px;
+  --border-width: 1px;
+  --focus-width: 3px;
+  --control-height: 46px;
+  --content-width: 1280px;
+  --map-min-height: 280px;
+  --symbol-size: 36px;
+  --shadow-panel: 0 8px 32px #233e3608;
+  --map-label-outline: 4px;
+}
