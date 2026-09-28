@@ -1,3 +1,8 @@
+import {
+  createLiveDraft,
+  createLiveJourneyService,
+} from '../services/liveJourney'
+import { findAreas } from '../services/catalog'
 import { useEffect, useRef, useState } from 'react'
 import type { ParkingLot } from '@shared/types'
 import type { PlanResult } from '@features/routing'
@@ -5,7 +10,6 @@ import type { Ordering } from '@features/routing/optimizer/optimizer'
 import { DEFAULT_DWELL_MIN, MAX_WAYPOINTS } from '@shared/config'
 import {
   createInitialDraft,
-  createJourneyService,
   type JourneyDraft,
   type JourneyService,
   type ParkingSelections,
@@ -13,8 +17,10 @@ import {
 } from '../services/journey'
 
 export function useJourney(service?: JourneyService) {
-  const [api] = useState(() => service ?? createJourneyService())
-  const [draft, setDraft] = useState(createInitialDraft)
+  const [api] = useState(() => service ?? createLiveJourneyService())
+  const [draft, setDraft] = useState(() =>
+    service ? createInitialDraft() : createLiveDraft(),
+  )
   const [stage, setStage] = useState<'input' | 'parking' | 'results'>('input')
   const [orders, setOrders] = useState<Ordering[]>([])
   const [order, setOrder] = useState<string[]>([])
@@ -130,7 +136,9 @@ export function useJourney(service?: JourneyService) {
               ...previous.waypoints,
               {
                 id: `visit-${nextId.current++}`,
-                placeId: 'deoksugung',
+                placeId: service
+                  ? 'deoksugung'
+                  : (findAreas('덕수궁')[0] ?? findAreas('')[0]).id,
                 dwellMin: DEFAULT_DWELL_MIN,
               },
             ],
@@ -157,6 +165,7 @@ export function useJourney(service?: JourneyService) {
       }
     })
   return {
+    live: !service,
     draft,
     stage,
     orders,

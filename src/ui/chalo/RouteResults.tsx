@@ -14,15 +14,17 @@ import {
   time,
   won,
 } from '../services/display'
-import { placeById } from '../services/places'
+import { placeById } from '../services/catalog'
 import { Icon } from './Icons'
 
 export function RouteResults({
+  live = false,
   result,
   draft,
   selected,
   onSelect,
 }: {
+  live?: boolean
   result: PlanResult
   draft: JourneyDraft
   selected: Route
@@ -59,7 +61,8 @@ export function RouteResults({
         <span>차로의 추천</span>
         {scenarioNames[recommended.scenario]}로 이동하는 게 좋아요.
         <small>
-          예시 데이터 기준 · {minutes(recommended.totals.durationSec)} ·{' '}
+          {live ? 'API 조회 결과 · 도보 추정·주차 샘플' : '테스트 데이터 기준'}{' '}
+          · {minutes(recommended.totals.durationSec)} ·{' '}
           {won(recommended.totals.cost)}
           {recommended.totals.parkingCostPartial ? ' + 미확인 주차비' : ''}
         </small>
@@ -172,7 +175,11 @@ export function RouteResults({
                   <strong>{placeById(draft.destinationId).name}</strong>
                 </div>
                 <p>최종 도착 · {time(timeline.finalArriveAt)}</p>
-                <small>혼잡: 정보 없음</small>
+                <small>
+                  {live
+                    ? '도착지 혼잡은 아래 추천 근거에 반영됩니다.'
+                    : '혼잡: 정보 없음'}
+                </small>
               </div>
             </div>
             <div className="journey-end">

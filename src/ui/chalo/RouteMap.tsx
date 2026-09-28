@@ -85,7 +85,7 @@ export function RouteMap({
         <svg
           viewBox={`0 0 ${width} ${height}`}
           role="group"
-          aria-label="예시 경로와 주차장 지도"
+          aria-label="경로와 주차장 지도"
         >
           <rect width={width} height={height} className="map-background" />
           {tiles &&
@@ -170,7 +170,7 @@ export function RouteMap({
         </svg>
         <div className="map-label">
           <Icon name="pin" size={15} />
-          <span>DEMO · 예시 경로</span>
+          <span>경로 지도 · 점선은 지점 간 연결</span>
         </div>
         <div className="map-controls">
           <button
@@ -247,15 +247,17 @@ export function RouteMap({
             <div>
               <span className="crowd-dot unknown" />
               <strong>방문 지역</strong>
-              <b>혼잡: 정보 없음</b>
-              <small>통계 기반 추정 · 실시간 조회 전</small>
+              <b>
+                {route ? '도착 시각 혼잡도는 추천에 반영' : '혼잡: 정보 없음'}
+              </b>
+              <small>통계 기반 추정</small>
             </div>
-            <p>혼잡도 정보가 없는 지역은 음영으로 표시하지 않습니다.</p>
+            <p>지도에는 혼잡도 영역 음영을 표시하지 않습니다.</p>
           </div>
         )}
         <p className="geometry-status">
-          이동시간과 주차장은 예시입니다. 점선은 실제 도로가 아닌 지점 간
-          연결입니다.
+          접근 도보는 추정값·주차장은 샘플입니다. 점선은 실제 도로가 아닌 지점
+          간 연결입니다.
         </p>
       </div>
     </div>

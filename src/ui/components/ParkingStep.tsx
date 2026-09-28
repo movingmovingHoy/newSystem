@@ -1,5 +1,5 @@
 import type { JourneyState } from '../hooks/useJourney'
-import { placeById } from '../services/places'
+import { placeById } from '../services/catalog'
 import { calculateParkingFee } from '@features/parking/fee'
 import { won } from '../services/display'
 

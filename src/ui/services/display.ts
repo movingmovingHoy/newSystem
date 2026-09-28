@@ -1,7 +1,7 @@
 import type { Route } from '@shared/types'
 import { CONGEST_LEVELS } from '@shared/config'
 import { departureIso, type JourneyDraft } from './journey'
-import { placeById } from './places'
+import { placeById } from './catalog'
 
 export const won = (value: number) => `${value.toLocaleString('ko-KR')}원`
 export const minutes = (seconds: number) => `${Math.ceil(seconds / 60)}분`

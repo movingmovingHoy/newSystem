@@ -41,6 +41,7 @@ export function Sidebar({ flow }: { flow: JourneyState }) {
               <div className="location-row">
                 <span className="location-dot" />
                 <PlacePicker
+                  kind="origin"
                   value={draft.originId}
                   onChange={(originId) => flow.update({ originId })}
                   label="출발지 선택"
@@ -179,10 +180,11 @@ export function Sidebar({ flow }: { flow: JourneyState }) {
             <label className="scenario-label" htmlFor="data-source">
               데이터 모드
             </label>
-            <select id="data-source" defaultValue="demo">
-              <option value="demo">데모 · 예시 데이터</option>
-              <option disabled>실시간 연결 준비 중</option>
-            </select>
+            <p id="data-source">
+              {flow.live
+                ? '카카오·ODsay 실제 조회 / 도보 추정·주차 샘플'
+                : '테스트 데이터'}
+            </p>
           </div>
           <button
             type="submit"

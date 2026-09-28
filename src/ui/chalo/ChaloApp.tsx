@@ -2,27 +2,23 @@ import { useEffect, useRef, useState } from 'react'
 import type { Scenario } from '@shared/types'
 import type { JourneyService } from '../services/journey'
 import { useJourney } from '../hooks/useJourney'
-import { placeById } from '../services/places'
+import { placeById } from '../services/catalog'
 import type { MapPoint } from '../components/CoordinateMap'
 import { Sidebar } from './Sidebar'
 import { RouteMap } from './RouteMap'
 import { ParkingChoices } from './ParkingChoices'
 import { RouteResults } from './RouteResults'
 import { Icon } from './Icons'
-import { usePreview } from './usePreview'
 import './source.css'
 import './native.css'
 
 export function ChaloApp({ service }: { service?: JourneyService }) {
-  const flow = useJourney(service),
-    preview = usePreview()
+  const flow = useJourney(service)
   const [scenario, setScenario] = useState<Scenario | null>(null)
   const dialog = useRef<HTMLDialogElement>(null),
     content = useRef<HTMLElement>(null)
-  const draft =
-    flow.stage === 'input' ? (preview?.draft ?? flow.draft) : flow.draft
-  const result =
-    flow.result ?? (flow.stage === 'input' ? preview?.result : null)
+  const draft = flow.draft
+  const result = flow.result
   const selected =
     result?.routes.find((r) => r.scenario === scenario) ?? result?.routes[0]
   useEffect(() => {
@@ -106,15 +102,18 @@ export function ChaloApp({ service }: { service?: JourneyService }) {
                 {placeById(draft.destinationId).name}
                 <span>가는 길</span>
               </h2>
-              <span className="data-badge">DEMO · 예시 데이터</span>
+              <span className="data-badge">
+                {flow.live ? 'API 경로 조회' : '테스트 데이터'}
+              </span>
             </div>
             <p>도로 혼잡을 피해, 이동시간과 비용을 함께 비교해보세요.</p>
           </div>
           {flow.stage === 'input' && (
             <div className="dirty-notice">
               <Icon name="info" size={15} />
-              예시 미리보기입니다. ‘더 나은 경로 찾기’를 눌러 주차장을 선택하고
-              결과를 업데이트하세요.
+              장소를 선택한 뒤 ‘더 나은 경로 찾기’를 눌러 조회하세요.
+              자동차·대중교통은 실제 API를 사용하며, 접근 도보는 추정값·주차장은
+              샘플입니다.
             </div>
           )}
           {flow.error && (
@@ -147,14 +146,14 @@ export function ChaloApp({ service }: { service?: JourneyService }) {
               </div>
               <div>
                 <strong>방문 지역</strong>
-                <span>최근 관측 정보</span>
+                <span>도착 시각 예측 · 추천에 반영</span>
               </div>
               <div className="congestion-tags">
                 <span>
                   도로 <b>정보 없음</b>
                 </span>
                 <span>
-                  인구 <b>정보 없음</b>
+                  인구 <b>{selected ? '추천 근거 참고' : '조회 전'}</b>
                 </span>
               </div>
             </div>
@@ -162,6 +161,7 @@ export function ChaloApp({ service }: { service?: JourneyService }) {
           {flow.stage === 'parking' && <ParkingChoices flow={flow} />}
           {result && selected && (
             <RouteResults
+              live={flow.live}
               result={result}
               draft={draft}
               selected={selected}
@@ -219,10 +219,11 @@ export function ChaloApp({ service }: { service?: JourneyService }) {
           <li>자차·혼합·대중교통의 이동시간과 비용을 비교하세요.</li>
         </ol>
         <div className="guide-note">
-          <strong>현재는 데모 화면입니다.</strong>
+          <strong>데이터 연결 상태</strong>
           <p>
-            주차장과 이동시간은 예시입니다. 실제 API 연결 전이며 잔여 주차면은
-            표시하지 않습니다. 택시는 현재 MVP에 포함되지 않습니다.
+            자동차는 카카오, 대중교통은 ODsay, 혼잡도는 서울시 API로 조회합니다.
+            접근 도보는 추정값이고 주차장은 샘플이며 잔여 주차면은 표시하지
+            않습니다. 택시는 현재 MVP에 포함되지 않습니다.
           </p>
         </div>
       </dialog>

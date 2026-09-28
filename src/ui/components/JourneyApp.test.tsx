@@ -16,7 +16,7 @@ const click = (name: string | RegExp) =>
 
 describe('입력 → 주차 → 결과', () => {
   it('경유지 4개째 추가를 막고 고정 순번 중복을 막는다', () => {
-    render(<JourneyApp />)
+    render(<JourneyApp service={createJourneyService()} />)
     click('경유지 추가')
     click('경유지 추가')
     expect(screen.getByRole('button', { name: '경유지 추가' })).toBeDisabled()
@@ -29,7 +29,7 @@ describe('입력 → 주차 → 결과', () => {
     ).toBeDisabled()
   })
   it('순차 주차 선택 후 결과와 정보 없음 문구를 보여준다', async () => {
-    render(<JourneyApp />)
+    render(<JourneyApp service={createJourneyService()} />)
     click('경유지 추가')
     click('주차장 찾기')
     expect(
@@ -53,7 +53,7 @@ describe('입력 → 주차 → 결과', () => {
     expect(screen.getByText(/최종 도착/)).toBeInTheDocument()
   })
   it('결과에서 순서를 변경하면 주차 선택을 초기화한다', async () => {
-    render(<JourneyApp />)
+    render(<JourneyApp service={createJourneyService()} />)
     click('경유지 추가')
     click('주차장 찾기')
     await screen.findByRole('heading', { name: /첫 번째 주차장/ })
@@ -73,23 +73,25 @@ describe('입력 → 주차 → 결과', () => {
     expect(screen.getByText('선택 완료 0 / 2')).toBeInTheDocument()
   })
   it('후보가 없으면 입력으로 돌아가 수정할 수 있다', async () => {
-    render(<JourneyApp />)
+    render(<JourneyApp service={createJourneyService()} />)
     fireEvent.click(screen.getByRole('combobox', { name: '경유지 1 장소' }))
-    fireEvent.click(screen.getByRole('option', { name: /홍대입구역/ }))
+    fireEvent.click(screen.getByRole('option', { name: /홍대 관광특구/ }))
     click('주차장 찾기')
     expect(
       await screen.findByText('반경 1km 안에 샘플 주차장이 없습니다.'),
     ).toBeInTheDocument()
     click('입력 수정')
     await waitFor(() =>
-      expect(screen.getByLabelText('경유지 1 장소')).toHaveTextContent('홍대입구역'),
+      expect(screen.getByLabelText('경유지 1 장소')).toHaveTextContent(
+        '홍대 관광특구',
+      ),
     )
   })
 })
 
 describe('복구 및 경유지 없는 경로', () => {
   it('경유지가 없으면 주차 선택을 건너뛴다', async () => {
-    render(<JourneyApp />)
+    render(<JourneyApp service={createJourneyService()} />)
     click('경유지 1 삭제')
     click('경로 비교하기')
     expect(

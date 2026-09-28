@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { rankRoutes, RANK_LABELS, type RankCriterion } from '@features/routing'
 import type { Route } from '@shared/types'
 import type { JourneyState } from '../hooks/useJourney'
-import { placeById } from '../services/places'
+import { placeById } from '../services/catalog'
 import { departureIso } from '../services/journey'
 import {
   displayTimeline,

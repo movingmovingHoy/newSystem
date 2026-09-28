@@ -1,4 +1,4 @@
-import type { ParkingLot } from '@shared/types'
+import type { LatLng, ParkingLot } from '@shared/types'
 import {
   DEFAULT_DWELL_MIN,
   MAX_WAYPOINTS,
@@ -21,7 +21,7 @@ import {
 } from '@features/parking/providers'
 import { findParkingCandidates } from '@features/parking/finder'
 import { calculateParkingFee } from '@features/parking/fee'
-import { placeById } from './places'
+import { placeById } from './catalog'
 
 export type WaypointDraft = {
   id: string
@@ -100,6 +100,10 @@ export function createJourneyService(
     transit: new MockTransitProvider(),
   },
   parkingProvider: ParkingProvider = new SampleParkingProvider(),
+  congestionLevelAt?: (
+    location: LatLng,
+    arriveAt: Date,
+  ) => Promise<number | null>,
 ) {
   return {
     async order(draft: JourneyDraft) {
@@ -164,6 +168,7 @@ export function createJourneyService(
         destination: placeById(draft.destinationId).location,
         departAt: departureIso(draft),
         preference: draft.preference,
+        congestionLevelAt,
         waypoints: order.map((id, index) => {
           const w = draft.waypoints.find((item) => item.id === id)!
           const lot = selections[id]
