@@ -5,10 +5,12 @@ import {
   type RankCriterion,
 } from '@features/routing'
 import type { Route } from '@shared/types'
-import type { JourneyDraft } from '../services/journey'
+import type { JourneyDraft, ParkingSelections } from '../services/journey'
 import { departureIso } from '../services/journey'
 import {
+  describeTransitStep,
   displayTimeline,
+  meters,
   minutes,
   scenarioNames,
   time,
@@ -16,24 +18,34 @@ import {
 } from '../services/display'
 import { placeById } from '../services/catalog'
 import { Icon } from './Icons'
+import { TransitJourney } from './TransitJourney'
 
 export function RouteResults({
   live = false,
   result,
   draft,
   selected,
+  selections,
   onSelect,
 }: {
   live?: boolean
   result: PlanResult
   draft: JourneyDraft
   selected: Route
+  selections?: ParkingSelections
   onSelect: (route: Route) => void
 }) {
   const [sort, setSort] = useState<RankCriterion>('recommended')
   const routes = rankRoutes(result.routes, sort),
     recommended = result.routes[0],
-    timeline = displayTimeline(selected, draft)
+    timeline = displayTimeline(selected, draft, selections)
+  const isTransit = selected.scenario === 'transit-only'
+  // 종점(순서상 마지막 도착지). "최종 도착지" 고정 개념이 없다.
+  const endpointId = result.order.at(-1) ?? draft.waypoints[0]?.id
+  const endpointWaypoint = draft.waypoints.find((w) => w.id === endpointId)
+  const endpointPlace = endpointWaypoint
+    ? placeById(endpointWaypoint.placeId)
+    : placeById(draft.waypoints[0].placeId)
   const transportation = selected.legs.reduce((sum, leg) => sum + leg.cost, 0)
   const parkingCost = selected.stops.reduce(
     (sum, stop) => sum + (stop.parkingFee ?? 0),
@@ -126,7 +138,7 @@ export function RouteResults({
           </div>
         ))}
       </div>
-      <section className="detail-panel">
+      <section className={`detail-panel ${isTransit ? 'transit-panel' : ''}`}>
         <div className="detail-title">
           <div>
             <span className="eyebrow">YOUR ROUTE</span>
@@ -138,55 +150,109 @@ export function RouteResults({
           </span>
         </div>
         <div className="detail-columns">
-          <div className="journey">
-            <div className="journey-step">
-              <span className="step-icon">
-                <Icon name="pin" />
-              </span>
-              <div>
-                <div className="step-heading">
-                  <strong>{placeById(draft.originId).name}</strong>
-                </div>
-                <p>{time(departureIso(draft))} 출발</p>
-              </div>
-            </div>
-            {timeline.visits.map((visit, index) => (
-              <div className="journey-step walk" key={index}>
+          {isTransit ? (
+            <TransitJourney
+              route={selected}
+              timeline={timeline}
+              origin={placeById(draft.originId).name}
+              endpoint={endpointPlace.name}
+              departure={departureIso(draft)}
+            />
+          ) : (
+            <div className="journey">
+              <div className="journey-step">
                 <span className="step-icon">
-                  <Icon name="walk" />
+                  <Icon name="pin" />
                 </span>
                 <div>
                   <div className="step-heading">
-                    <strong>{visit.name}</strong>
-                    <b>체류 {visit.dwellMin}분</b>
+                    <strong>{placeById(draft.originId).name}</strong>
                   </div>
-                  <p>{time(visit.arriveAt)} 도착</p>
-                  <p>{time(visit.departAt)} 출발</p>
-                  <small>{visit.congestion}</small>
+                  <p>{time(departureIso(draft))} 출발</p>
                 </div>
               </div>
-            ))}
-            <div className="journey-step transit">
-              <span className="step-icon">
-                <Icon name="check" />
-              </span>
-              <div>
-                <div className="step-heading">
-                  <strong>{placeById(draft.destinationId).name}</strong>
+              {timeline.visits.map((visit, index) => (
+                <div
+                  className={`journey-step ${visit.accessMode === 'transit' ? 'transit' : 'walk'}`}
+                  key={index}
+                >
+                  <span className="step-icon">
+                    <Icon
+                      name={visit.accessMode === 'transit' ? 'train' : 'walk'}
+                    />
+                  </span>
+                  <div>
+                    <div className="step-heading">
+                      <strong>{visit.name}</strong>
+                      <b>체류 {visit.dwellMin}분</b>
+                    </div>
+                    <p>{time(visit.arriveAt)} 도착</p>
+                    <p>{time(visit.departAt)} 출발</p>
+                    {/* 이 도착지까지 어떻게 왔는지 (대중교통 승하차 / 도보) */}
+                    {visit.transitSteps.length > 0 ? (
+                      <ul className="segment-detail">
+                        {visit.transitSteps.map((step, i) => (
+                          <li key={i} data-type={step.type}>
+                            {describeTransitStep(step)}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      visit.accessWalkM > 0 && (
+                        <p className="segment-walk">
+                          도보 {meters(visit.accessWalkM)}
+                        </p>
+                      )
+                    )}
+                    {/* 자차/혼합: 주차장 정보 (없으면 정보 없음) */}
+                    {!isTransit && (
+                      <p className="segment-parking">
+                        <Icon name="parking" size={13} />
+                        {visit.parkingName
+                          ? `주차 · ${visit.parkingName}`
+                          : '주차 정보: 없음'}
+                        {' · '}
+                        {visit.parkingFee === null
+                          ? '요금 정보 없음'
+                          : won(visit.parkingFee)}
+                      </p>
+                    )}
+                    <small>{visit.congestion}</small>
+                  </div>
                 </div>
-                <p>최종 도착 · {time(timeline.finalArriveAt)}</p>
-                <small>
-                  {live
-                    ? '도착지 혼잡은 아래 추천 근거에 반영됩니다.'
-                    : '혼잡: 정보 없음'}
-                </small>
+              ))}
+              <div className="journey-step transit">
+                <span className="step-icon">
+                  <Icon name="check" />
+                </span>
+                <div>
+                  <div className="step-heading">
+                    <strong>{endpointPlace.name}</strong>
+                  </div>
+                  {/* 종점까지 대중교통 구간 상세 (transit-only) */}
+                  {timeline.endpointSteps.length > 0 && (
+                    <ul className="segment-detail">
+                      {timeline.endpointSteps.map((step, i) => (
+                        <li key={i} data-type={step.type}>
+                          {describeTransitStep(step)}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <p>최종 도착 · {time(timeline.finalArriveAt)}</p>
+                  <small>
+                    {live
+                      ? '도착지 혼잡은 아래 추천 근거에 반영됩니다.'
+                      : '혼잡: 정보 없음'}
+                  </small>
+                </div>
+              </div>
+              <div className="journey-end">
+                <Icon name="check" size={14} />
+                마지막 목적지 도착 · 일정 완료
               </div>
             </div>
-            <div className="journey-end">
-              <Icon name="check" size={14} />
-              마지막 목적지 도착 · 일정 완료
-            </div>
-          </div>
+          )}
           <div className="cost-panel">
             <h4>
               <Icon name="wallet" size={17} />
@@ -217,7 +283,9 @@ export function RouteResults({
             <p>
               {selected.totals.parkingCostPartial
                 ? '요금이 없는 주차장은 무료로 계산하지 않습니다. 실제 총비용은 더 높을 수 있어요.'
-                : '체류시간을 기준으로 계산한 예상 주차비를 포함합니다.'}
+                : isTransit
+                  ? '조회된 대중교통 예상 요금입니다.'
+                  : '체류시간을 기준으로 계산한 예상 주차비를 포함합니다.'}
             </p>
             <div>
               <span>피로도</span>
@@ -236,7 +304,7 @@ export function RouteResults({
               className="map-link"
               target="_blank"
               rel="noreferrer"
-              href={`https://map.kakao.com/link/map/${encodeURIComponent(placeById(draft.destinationId).name)},${placeById(draft.destinationId).location.lat},${placeById(draft.destinationId).location.lng}`}
+              href={`https://map.kakao.com/link/map/${encodeURIComponent(endpointPlace.name)},${endpointPlace.location.lat},${endpointPlace.location.lng}`}
             >
               마지막 목적지 위치 보기
               <Icon name="arrow" size={15} />

@@ -49,21 +49,9 @@ export function Sidebar({ flow }: { flow: JourneyState }) {
                 />
               </div>
             </div>
-            <div className="field-block">
-              <label>도착지</label>
-              <div className="location-row">
-                <span className="destination-number">도</span>
-                <PlacePicker
-                  value={draft.destinationId}
-                  onChange={(destinationId) => flow.update({ destinationId })}
-                  label="도착지 선택"
-                  disabled={flow.stage !== 'input' || flow.busy}
-                />
-              </div>
-            </div>
             {draft.waypoints.map((w, index) => (
               <div className="field-block" key={w.id}>
-                <label>경유지 {index + 1}</label>
+                <label>도착지 {index + 1}</label>
                 <div className="location-row">
                   <span className="destination-number">{index + 1}</span>
                   <PlacePicker
@@ -71,13 +59,14 @@ export function Sidebar({ flow }: { flow: JourneyState }) {
                     onChange={(placeId) =>
                       flow.updateWaypoint(w.id, { placeId })
                     }
-                    label={`경유지 ${index + 1} 장소`}
+                    label={`도착지 ${index + 1} 장소`}
                     disabled={flow.stage !== 'input' || flow.busy}
                   />
                   <button
                     className="icon-button"
                     type="button"
-                    aria-label={`경유지 ${index + 1} 삭제`}
+                    aria-label={`도착지 ${index + 1} 삭제`}
+                    disabled={draft.waypoints.length <= 1}
                     onClick={() => flow.removeWaypoint(w.id)}
                   >
                     <Icon name="close" size={14} />
@@ -87,23 +76,26 @@ export function Sidebar({ flow }: { flow: JourneyState }) {
                   <label>
                     체류 (분)
                     <input
-                      aria-label={`경유지 ${index + 1} 체류시간`}
+                      aria-label={`도착지 ${index + 1} 체류시간`}
                       required
                       type="number"
                       min="0"
                       step="1"
                       value={Number.isNaN(w.dwellMin) ? '' : w.dwellMin}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        // 빈 값이면 0으로 두어 NaN 이 draft 에 저장돼
+                        // 경로찾기 검증에서 조용히 실패하는 것을 막는다.
+                        const next = e.target.valueAsNumber
                         flow.updateWaypoint(w.id, {
-                          dwellMin: e.target.valueAsNumber,
+                          dwellMin: Number.isNaN(next) ? 0 : next,
                         })
-                      }
+                      }}
                     />
                   </label>
                   <label>
                     방문 순번
                     <select
-                      aria-label={`경유지 ${index + 1} 고정 순번`}
+                      aria-label={`도착지 ${index + 1} 고정 순번`}
                       value={w.fixedIndex ?? ''}
                       onChange={(e) =>
                         flow.updateWaypoint(w.id, {
@@ -135,12 +127,12 @@ export function Sidebar({ flow }: { flow: JourneyState }) {
             <button
               className="add-stop native-button"
               type="button"
-              aria-label="경유지 추가"
+              aria-label="도착지 추가"
               disabled={draft.waypoints.length >= MAX_WAYPOINTS}
               onClick={flow.addWaypoint}
             >
               <Icon name="plus" size={16} />
-              경유지 추가<span>최대 {MAX_WAYPOINTS}곳</span>
+              도착지 추가<span>최대 {MAX_WAYPOINTS}곳</span>
             </button>
             <p className="field-hint">
               방문 순서를 추천해요. 원하는 순번은 고정하세요.
@@ -151,7 +143,7 @@ export function Sidebar({ flow }: { flow: JourneyState }) {
               <Icon name="parking" size={17} />
               주차비도 함께 비교해요
             </div>
-            <p>경유지별 체류시간으로 예상 요금을 계산해요.</p>
+            <p>도착지별 체류시간으로 예상 요금을 계산해요.</p>
           </div>
           <div className="data-controls">
             <label htmlFor="departure">출발 시각 · 한국 시간</label>
@@ -190,7 +182,7 @@ export function Sidebar({ flow }: { flow: JourneyState }) {
             type="submit"
             className="search-button native-button"
             aria-label={
-              draft.waypoints.length ? '주차장 찾기' : '경로 비교하기'
+              draft.waypoints.length > 1 ? '주차장 찾기' : '경로 비교하기'
             }
           >
             <Icon name="route" />

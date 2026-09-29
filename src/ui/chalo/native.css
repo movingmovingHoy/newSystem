@@ -144,7 +144,8 @@
   font-size: var(--chalo-size-sm);
 }
 .place-popover [role='option']:hover,
-.place-popover [role='option']:focus {
+.place-popover [role='option']:focus,
+.place-popover [role='option'][data-active] {
   background: var(--chalo-page);
 }
 .place-popover [role='option'] > span {
@@ -295,4 +296,43 @@
   .current-route-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* YOUR ROUTE 타임라인: 구간별 상세 (대중교통 승하차 / 도보 / 주차) */
+.segment-detail {
+  list-style: none;
+  margin: var(--chalo-space-1) var(--chalo-space-0);
+  padding: var(--chalo-space-0);
+  display: grid;
+  gap: var(--chalo-space-1);
+}
+.segment-detail li {
+  position: relative;
+  padding-left: var(--chalo-space-3);
+  font-size: var(--chalo-size-xs);
+  color: var(--chalo-ink);
+}
+.segment-detail li:before {
+  content: '';
+  position: absolute;
+  left: var(--chalo-space-0);
+  top: 0.55em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--chalo-muted);
+}
+.segment-detail li[data-type='subway']:before {
+  background: var(--chalo-blue);
+}
+.segment-detail li[data-type='bus']:before {
+  background: var(--chalo-focus);
+}
+.segment-walk,
+.segment-parking {
+  display: flex;
+  align-items: center;
+  gap: var(--chalo-space-1);
+  font-size: var(--chalo-size-xs);
+  color: var(--chalo-muted);
 }

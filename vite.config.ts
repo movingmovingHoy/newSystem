@@ -7,9 +7,11 @@ export default defineConfig(({ mode }) => {
   // .env* 에서 환경변수를 읽는다. REST 키는 서버(프록시)에서만 쓰고
   // 브라우저 번들에는 절대 포함하지 않는다 (VITE_ 접두사가 없으므로 노출 안 됨).
   const env = loadEnv(mode, process.cwd(), '')
-  const kakaoRestKey = env.KAKAO_REST_API_KEY ?? ''
-  const seoulKey = env.SEOUL_CITYDATA_KEY ?? ''
-  const odsayKey = env.ODSAY_KEY ?? ''
+  // .env 값에 실수로 섞인 앞뒤 공백/탭을 제거한다. 예: `ODSAY_KEY=\t키` 처럼
+  // 탭이 붙으면 %09 가 인증키에 포함돼 401 로 조용히 실패한다.
+  const kakaoRestKey = (env.KAKAO_REST_API_KEY ?? '').trim()
+  const seoulKey = (env.SEOUL_CITYDATA_KEY ?? '').trim()
+  const odsayKey = (env.ODSAY_KEY ?? '').trim()
 
   return {
     plugins: [react()],

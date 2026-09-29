@@ -3,6 +3,7 @@ type IconName =
   | 'route'
   | 'car'
   | 'train'
+  | 'bus'
   | 'walk'
   | 'pin'
   | 'info'
@@ -27,6 +28,12 @@ const shapes: Record<IconName, React.ReactNode> = {
   car: (
     <>
       <path d="m5 8 2-5h10l2 5M3 9h18v9H3zM5 18v3m14-3v3M6 13h2m8 0h2" />
+    </>
+  ),
+  bus: (
+    <>
+      <rect x="4" y="3" width="16" height="17" rx="3" />
+      <path d="M4 11h16M8 16h1m6 0h1M7 20v2m10-2v2" />
     </>
   ),
   train: (

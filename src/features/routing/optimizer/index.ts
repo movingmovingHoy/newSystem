@@ -1,4 +1,4 @@
-export { optimizeOrder, START_ID, END_ID } from './optimizer'
+export { optimizeOrder, START_ID } from './optimizer'
 export type {
   OptimizerWaypoint,
   OptimizeInput,

@@ -1,4 +1,5 @@
-import type { Leg, Mode, TransitStep } from '@shared/types'
+import type { Leg, LatLng, Mode, TransitStep } from '@shared/types'
+import { WALK_SPEED_KMH, WALK_DETOUR_FACTOR } from '@shared/config'
 import type { RouteProvider, RouteQuery } from './types'
 
 /**
@@ -7,9 +8,53 @@ import type { RouteProvider, RouteQuery } from './types'
  * 요약형: result.path[0] → Leg 1개. 요금/도보거리/환승은 ODsay 응답 값을 그대로 쓴다
  * (카카오와 달리 실제 요금 payment 를 제공하므로 기본요금 상수를 쓰지 않는다).
  * 나중에 구간형이 필요하면 subPath[]를 Leg 여러 개로 쪼개도록 이 파일만 확장한다.
+ *
+ * 근거리 예외: ODsay는 출·도착지가 700m 이내면 code -98 로 경로를 주지 않는다.
+ * 이는 "대중교통 대신 걸어가라"는 뜻이므로 에러로 처리하지 않고 도보 Leg로 폴백한다.
  */
 
 const ODSAY_PATH = '/api/odsay/searchPubTransPathT'
+
+/** 두 좌표의 대략적인 직선거리(m). 근거리 도보 폴백 추정용. */
+function roughDistanceM(a: LatLng, b: LatLng): number {
+  const dLat = (a.lat - b.lat) * 111_000
+  const dLng = (a.lng - b.lng) * 88_000
+  return Math.round(Math.sqrt(dLat * dLat + dLng * dLng))
+}
+
+function addSecondsBase(iso: string, seconds: number): string {
+  return new Date(new Date(iso).getTime() + seconds * 1000).toISOString()
+}
+
+/**
+ * 근거리(ODsay -98)일 때 대중교통 대신 걸어가는 것으로 보고 도보 Leg를 만든다.
+ * 추정 방식은 도보 mock과 동일: 직선거리 × 우회계수, 도시 보행 속도.
+ */
+function walkFallbackLeg(query: RouteQuery): Leg {
+  const departAt = query.departAt ?? new Date().toISOString()
+  const straightM = roughDistanceM(query.from, query.to)
+  const walkM = Math.round(straightM * WALK_DETOUR_FACTOR)
+  const speedMps = (WALK_SPEED_KMH * 1000) / 3600
+  const durationSec = Math.round(walkM / speedMps || 0)
+  return {
+    mode: 'walk',
+    from: query.from,
+    to: query.to,
+    departAt,
+    arriveAt: addSecondsBase(departAt, durationSec),
+    durationSec,
+    cost: 0,
+    walkDistanceM: walkM,
+    transfers: 0,
+    fatigue: 0,
+  }
+}
+
+/** ODsay 근거리 예외(code -98) 판별 */
+function isNearDistanceError(error: Record<string, unknown>): boolean {
+  const code = String(error.code ?? error.msgHead ?? '')
+  return code === '-98'
+}
 
 type OdsayInfo = {
   totalTime?: number // 분
@@ -101,8 +146,13 @@ export class OdsayTransitProvider implements RouteProvider {
 
     const data = (await res.json()) as OdsayResponse
     if (data.error) {
-      // ODsay 에러 형식이 문서와 다를 수 있어 원본을 그대로 노출한다.
       const e = data.error as Record<string, unknown>
+      // 근거리(700m 이내, code -98)는 에러가 아니라 "걸어가라"는 신호다.
+      // 대중교통 대신 도보 Leg로 폴백해 전체 경로 계산이 죽지 않게 한다.
+      if (isNearDistanceError(e)) {
+        return [walkFallbackLeg(query)]
+      }
+      // 그 외 에러는 형식이 문서와 다를 수 있어 원본을 그대로 노출한다.
       const code = e.code ?? e.msgHead ?? '알 수 없음'
       const message = e.message ?? e.msgBody ?? JSON.stringify(data.error)
       throw new Error(`ODsay 오류(${code}): ${message}`)

@@ -1,0 +1,193 @@
+.transit-journey {
+  min-width: 0;
+  color: var(--chalo-ink);
+}
+.transit-summary {
+  padding-bottom: var(--chalo-space-5);
+  border-bottom: 1px solid var(--chalo-border);
+  margin-bottom: var(--chalo-space-5);
+}
+.transit-caption {
+  color: var(--chalo-blue);
+  font-size: var(--chalo-size-sm);
+  font-weight: var(--chalo-weight-bold);
+}
+.transit-summary-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--chalo-space-4);
+  margin: var(--chalo-space-2) 0;
+}
+.transit-summary-main strong {
+  font-size: var(--chalo-transit-hero);
+  line-height: 1.15;
+  letter-spacing: var(--chalo-value-10);
+}
+.transit-summary-main b {
+  font-size: var(--chalo-transit-large);
+}
+.transit-summary p,
+.transit-place p {
+  margin: var(--chalo-space-1) 0;
+  font-size: var(--chalo-size-sm);
+}
+.transit-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--chalo-space-4);
+  margin: var(--chalo-space-3) 0;
+  font-size: var(--chalo-size-sm);
+}
+.transit-facts span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chalo-space-1);
+}
+.transit-journey small {
+  font-size: var(--chalo-size-xs);
+  color: var(--chalo-color-7);
+}
+.transit-bar {
+  display: flex;
+  gap: var(--chalo-space-1);
+  overflow-x: auto;
+  padding: var(--chalo-space-1) 0;
+  margin: var(--chalo-space-5) 0;
+}
+.transit-bar span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--chalo-space-1);
+  flex-basis: 0;
+  min-width: 58px;
+  white-space: nowrap;
+  border-radius: var(--chalo-radius);
+  padding: var(--chalo-space-2) var(--chalo-space-1);
+  font-size: var(--chalo-size-xs);
+  font-weight: var(--chalo-weight-bold);
+  background: var(--segment-color);
+  color: var(--chalo-white);
+}
+.transit-journey [data-mode='walk'] {
+  --segment-color: var(--chalo-color-7);
+}
+.transit-journey [data-mode='bus'] {
+  --segment-color: var(--chalo-blue);
+}
+.transit-journey [data-mode='subway'] {
+  --segment-color: var(--chalo-train);
+}
+.transit-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.transit-steps li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: var(--chalo-space-3);
+  padding-bottom: var(--chalo-space-6);
+}
+.transit-steps li::before {
+  content: '';
+  position: absolute;
+  top: 34px;
+  bottom: 0;
+  left: 17px;
+  width: 2px;
+  background: var(--chalo-border);
+}
+.transit-node {
+  z-index: 1;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--chalo-round);
+  display: grid;
+  place-items: center;
+  background: var(--segment-color);
+  color: var(--chalo-white);
+}
+.transit-step-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--chalo-space-3);
+  padding-top: var(--chalo-space-1);
+}
+.transit-step-heading strong {
+  color: var(--segment-color);
+  font-size: var(--chalo-size-base);
+}
+.transit-step-heading > span {
+  flex-shrink: 0;
+  font-weight: var(--chalo-weight-bold);
+  font-size: var(--chalo-size-sm);
+}
+.transit-step-content p {
+  margin: var(--chalo-space-2) 0 0;
+  color: var(--chalo-color-7);
+  font-size: var(--chalo-size-sm);
+}
+.transit-step-content .transit-station {
+  color: var(--chalo-ink);
+  font-size: var(--chalo-size-base);
+  font-weight: var(--chalo-weight-medium);
+}
+.transit-station span {
+  margin-left: var(--chalo-space-2);
+  color: var(--chalo-color-7);
+  font-size: var(--chalo-size-xs);
+  font-weight: var(--chalo-weight-normal);
+}
+.transit-place {
+  padding: var(--chalo-space-4);
+  background: var(--chalo-page);
+  border-radius: var(--chalo-radius);
+  overflow-wrap: anywhere;
+}
+.transit-place-label {
+  display: inline-block;
+  color: var(--chalo-blue);
+  font-size: var(--chalo-size-sm);
+  font-weight: var(--chalo-weight-bold);
+  margin-right: var(--chalo-space-3);
+}
+.transit-place strong {
+  font-size: var(--chalo-size-base);
+}
+.transit-place[data-end='true'] {
+  background: var(--chalo-color-87);
+}
+.transit-unavailable {
+  padding: var(--chalo-space-4);
+  font-size: var(--chalo-size-sm);
+}
+
+.transit-journey [data-mode='subway'][data-line*='2호선'] {
+  --segment-color: var(--chalo-bus);
+}
+.transit-journey [data-mode='subway'][data-line*='4호선'] {
+  --segment-color: var(--chalo-transit-cyan);
+}
+
+@media (min-width: 901px) {
+  .transit-summary-main strong {
+    font-size: var(--chalo-value-9);
+  }
+  .transit-summary-main b {
+    font-size: var(--chalo-size-base);
+  }
+  .transit-summary {
+    margin-bottom: var(--chalo-space-3);
+    padding-bottom: var(--chalo-space-3);
+  }
+  .transit-place {
+    padding: var(--chalo-space-3);
+  }
+  .transit-steps li {
+    padding-bottom: var(--chalo-space-4);
+  }
+}

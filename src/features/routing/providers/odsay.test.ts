@@ -118,6 +118,26 @@ describe('OdsayTransitProvider', () => {
     ).rejects.toThrow()
   })
 
+  it('근거리(code -98)면 에러 대신 도보 Leg로 폴백한다', async () => {
+    // 700m 이내라 ODsay가 경로를 주지 않는 경우: 걸어가는 것으로 대체한다.
+    const near = { lat: 37.5665, lng: 126.978 }
+    const nearTo = { lat: 37.5675, lng: 126.979 }
+    mockFetchOnce({
+      error: { code: '-98', msg: '출, 도착지가 700m이내입니다.' },
+    })
+    const legs = await new OdsayTransitProvider().route({
+      from: near,
+      to: nearTo,
+      departAt: '2026-09-21T09:00:00.000Z',
+    })
+    expect(legs).toHaveLength(1)
+    expect(legs[0].mode).toBe('walk')
+    expect(legs[0].cost).toBe(0)
+    expect(legs[0].transfers).toBe(0)
+    expect(legs[0].walkDistanceM).toBeGreaterThan(0)
+    expect(legs[0].durationSec).toBeGreaterThan(0)
+  })
+
   it('path가 비어 있으면 예외를 던진다', async () => {
     mockFetchOnce({ result: { path: [] } })
     await expect(

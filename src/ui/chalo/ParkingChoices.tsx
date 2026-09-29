@@ -14,7 +14,8 @@ export function ParkingChoices({ flow }: { flow: JourneyState }) {
           {['첫 번째', '두 번째', '세 번째'][flow.parkingIndex]} 주차장
         </h3>
         <span>
-          선택 완료 {Object.keys(flow.selections).length} / {flow.order.length}
+          선택 완료 {Object.keys(flow.selections).length} /{' '}
+          {Math.max(flow.order.length - 1, 0)}
         </span>
       </div>
       <p className="parking-explainer">
@@ -36,7 +37,7 @@ export function ParkingChoices({ flow }: { flow: JourneyState }) {
             <span className="parking-name">
               <strong>{lot.name}</strong>
               <small>
-                경유지에서 직선거리 {Math.round(lot.distanceToWaypointM)}m
+                도착지에서 직선거리 {Math.round(lot.distanceToWaypointM)}m
               </small>
             </span>
             <span className="parking-price">
@@ -50,20 +51,35 @@ export function ParkingChoices({ flow }: { flow: JourneyState }) {
         )
       })}
       {!flow.candidates.length && (
-        <p className="options-empty">반경 1km 안에 샘플 주차장이 없습니다.</p>
+        <p className="options-empty">
+          반경 1km 안에 샘플 주차장이 없습니다. 이 도착지는 주차장 없이 진행할
+          수 있어요.
+        </p>
       )}
       <p className="options-note">
         선택한 주차장은 자차와 혼합 경로에 함께 반영돼요. 요금 정보가 없어도
         선택할 수 있습니다.
       </p>
-      <button
-        className="search-button native-button parking-confirm"
-        disabled={flow.busy || !flow.highlighted}
-        onClick={() => void flow.chooseParking()}
-      >
-        {flow.busy ? '경로를 계산하고 있어요…' : '이 주차장 선택'}
-        <Icon name="arrow" size={18} />
-      </button>
+      {flow.candidates.length ? (
+        <button
+          className="search-button native-button parking-confirm"
+          disabled={flow.busy || !flow.highlighted}
+          onClick={() => void flow.chooseParking()}
+        >
+          {flow.busy ? '경로를 계산하고 있어요…' : '이 주차장 선택'}
+          <Icon name="arrow" size={18} />
+        </button>
+      ) : (
+        // A-1: 후보가 없으면 도착지 좌표에 바로 도착하는 것으로 보고 진행한다.
+        <button
+          className="search-button native-button parking-confirm"
+          disabled={flow.busy}
+          onClick={() => void flow.skipParking()}
+        >
+          {flow.busy ? '경로를 계산하고 있어요…' : '주차장 없이 이 도착지 진행'}
+          <Icon name="arrow" size={18} />
+        </button>
+      )}
     </section>
   )
 }

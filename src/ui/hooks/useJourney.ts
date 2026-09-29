@@ -2,7 +2,7 @@ import {
   createLiveDraft,
   createLiveJourneyService,
 } from '../services/liveJourney'
-import { findAreas } from '../services/catalog'
+import { findAreas, placeById } from '../services/catalog'
 import { useEffect, useRef, useState } from 'react'
 import type { ParkingLot } from '@shared/types'
 import type { PlanResult } from '@features/routing'
@@ -21,6 +21,14 @@ export function useJourney(service?: JourneyService) {
   const [draft, setDraft] = useState(() =>
     service ? createInitialDraft() : createLiveDraft(),
   )
+  // 초기 draft 의 visit-N id 중 가장 큰 번호 다음부터 새 도착지 id 를 발급해
+  // 기존 도착지와 id 가 충돌하지 않게 한다.
+  const initialMaxVisit = useRef(
+    draft.waypoints.reduce((max, w) => {
+      const n = Number(w.id.replace('visit-', ''))
+      return Number.isFinite(n) && n > max ? n : max
+    }, 0),
+  )
   const [stage, setStage] = useState<'input' | 'parking' | 'results'>('input')
   const [orders, setOrders] = useState<Ordering[]>([])
   const [order, setOrder] = useState<string[]>([])
@@ -32,7 +40,7 @@ export function useJourney(service?: JourneyService) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const ticket = useRef(0)
-  const nextId = useRef(2)
+  const nextId = useRef(initialMaxVisit.current + 1)
   useEffect(
     () => () => {
       ticket.current++
@@ -76,7 +84,10 @@ export function useJourney(service?: JourneyService) {
     setCandidates([])
     setHighlighted(null)
     setParkingIndex(0)
-    if (chosenOrder.length) await loadParking(chosenOrder, 0, current)
+    // 순서상 마지막 도착지는 종점이라 주차 선택이 없다. 앞쪽 도착지들만 주차.
+    // 도착지가 1개뿐이면 주차 단계 없이 바로 결과를 계산한다.
+    const parkingCount = chosenOrder.length - 1
+    if (parkingCount > 0) await loadParking(chosenOrder, 0, current)
     else {
       const calculated = await api.calculate(draft, chosenOrder, {})
       if (current()) {
@@ -92,22 +103,44 @@ export function useJourney(service?: JourneyService) {
       setOrders(alternatives)
       await startOrder(alternatives[0].order, current)
     })
+  // 현재 도착지의 주차 선택(lot)을 반영하고 다음 단계로 진행한다.
+  // lot 은 실제 주차장이거나, "주차장 없이 진행" sentinel 이다.
+  const advanceParking = async (lot: ParkingLot, current: () => boolean) => {
+    const next = { ...selections, [order[parkingIndex]]: lot }
+    // 마지막 도착지(종점) 직전까지만 주차를 받는다. parkingCount = order.length - 1
+    if (parkingIndex + 1 < order.length - 1) {
+      await loadParking(order, parkingIndex + 1, current)
+      if (current()) setSelections(next)
+    } else {
+      const calculated = await api.calculate(draft, order, next)
+      if (current()) {
+        setSelections(next)
+        setResult(calculated)
+        setStage('results')
+      }
+    }
+  }
   const chooseParking = () =>
     guard(async (current) => {
       const lot = candidates.find((item) => item.id === highlighted)
       if (!lot) throw new Error('주차장을 선택해주세요.')
-      const next = { ...selections, [order[parkingIndex]]: lot }
-      if (parkingIndex + 1 < order.length) {
-        await loadParking(order, parkingIndex + 1, current)
-        if (current()) setSelections(next)
-      } else {
-        const calculated = await api.calculate(draft, order, next)
-        if (current()) {
-          setSelections(next)
-          setResult(calculated)
-          setStage('results')
-        }
+      await advanceParking(lot, current)
+    })
+  // 주차장 후보가 없을 때 A-1: 도착지 좌표 자체를 주차 지점으로 간주하고
+  // (도보 0m, 요금 없음) 다음 단계로 넘어간다.
+  const skipParking = () =>
+    guard(async (current) => {
+      const id = order[parkingIndex]
+      const w = draft.waypoints.find((item) => item.id === id)!
+      const location = placeById(w.placeId).location
+      const sentinel: ParkingLot = {
+        id: '',
+        name: '주차장 없이 진행',
+        location,
+        fee: null,
+        distanceToWaypointM: 0,
       }
+      await advanceParking(sentinel, current)
     })
   const edit = () => {
     ticket.current++
@@ -146,6 +179,8 @@ export function useJourney(service?: JourneyService) {
     )
   const removeWaypoint = (id: string) =>
     setDraft((previous) => {
+      // 도착지는 최소 1개 유지. 마지막 하나는 삭제하지 않는다.
+      if (previous.waypoints.length <= 1) return previous
       const index = previous.waypoints.findIndex((w) => w.id === id)
       return {
         ...previous,
@@ -179,6 +214,7 @@ export function useJourney(service?: JourneyService) {
     error,
     start,
     chooseParking,
+    skipParking,
     edit,
     update,
     updateWaypoint,

@@ -21,6 +21,15 @@ export function ChaloApp({ service }: { service?: JourneyService }) {
   const result = flow.result
   const selected =
     result?.routes.find((r) => r.scenario === scenario) ?? result?.routes[0]
+  // 종점(순서상 마지막 도착지). 결과가 있으면 확정 순서의 마지막, 없으면
+  // 입력된 도착지 목록의 마지막을 쓴다. "최종 도착지" 고정 개념은 없다.
+  const endpointId =
+    (result?.order ?? draft.waypoints.map((w) => w.id)).at(-1) ??
+    draft.waypoints[0]?.id
+  const endpointWaypoint = draft.waypoints.find((w) => w.id === endpointId)
+  const endpointName = endpointWaypoint
+    ? placeById(endpointWaypoint.placeId).name
+    : '도착지'
   useEffect(() => {
     if (flow.stage !== 'input')
       content.current?.querySelector<HTMLElement>('[tabindex="-1"]')?.focus()
@@ -41,6 +50,8 @@ export function ChaloApp({ service }: { service?: JourneyService }) {
       })),
     ]
   } else {
+    // "최종 도착지" 고정이 없다. 방문 순서(order)의 도착지들을 그대로 찍는다.
+    // 마지막 항목이 종점이다.
     const order = result?.order ?? draft.waypoints.map((w) => w.id)
     points = [
       {
@@ -59,12 +70,6 @@ export function ChaloApp({ service }: { service?: JourneyService }) {
           kind: 'place' as const,
         }
       }),
-      {
-        id: 'destination',
-        label: placeById(draft.destinationId).name,
-        location: placeById(draft.destinationId).location,
-        kind: 'place',
-      },
     ]
   }
   return (
@@ -99,7 +104,7 @@ export function ChaloApp({ service }: { service?: JourneyService }) {
                   flow.stage === 'results' ? '경로 비교 결과' : undefined
                 }
               >
-                {placeById(draft.destinationId).name}
+                {endpointName}
                 <span>가는 길</span>
               </h2>
               <span className="data-badge">
@@ -165,6 +170,7 @@ export function ChaloApp({ service }: { service?: JourneyService }) {
               result={result}
               draft={draft}
               selected={selected}
+              selections={flow.selections}
               onSelect={(route) => setScenario(route.scenario)}
             />
           )}
@@ -214,8 +220,8 @@ export function ChaloApp({ service }: { service?: JourneyService }) {
         <h2 id="guide-title">차로 이용 안내</h2>
         <p>차를 어디에 두고, 어떻게 이동할지 함께 비교해요.</p>
         <ol>
-          <li>출발지·도착지와 경유지를 선택하고 체류시간을 입력하세요.</li>
-          <li>추천 방문 순서대로 경유지마다 주차장을 선택하세요.</li>
+          <li>출발지와 도착지들을 선택하고 체류시간을 입력하세요.</li>
+          <li>추천 방문 순서대로 도착지마다 주차장을 선택하세요.</li>
           <li>자차·혼합·대중교통의 이동시간과 비용을 비교하세요.</li>
         </ol>
         <div className="guide-note">

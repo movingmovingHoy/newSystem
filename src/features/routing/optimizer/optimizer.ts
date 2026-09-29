@@ -1,14 +1,16 @@
 import { MAX_WAYPOINTS } from '@shared/config'
 
 /**
- * 경유지 순서 최적화. AGENTS.md 9장.
- * 출발지(START)·도착지(END)는 고정. 경유지 최대 3개 → 최악 3!=6가지 브루트포스.
- * fixedIndex가 있는 경유지는 그 순번에 고정, 유동 경유지만 순열로 배치한다.
+ * 도착지 방문 순서 최적화. AGENTS.md 9장.
+ * 출발지(START)만 고정이다. 도착지는 최대 3개이며 "최종 도착지" 고정 개념이 없어
+ * 모든 도착지가 순번 대상이다 → 최악 3!=6가지 브루트포스.
+ * 순서상 마지막으로 방문하는 도착지가 그 여정의 종점이 된다.
+ * fixedIndex가 있는 도착지는 그 순번에 고정, 유동 도착지만 순열로 배치한다.
  * 구간 소요시간은 주입받는 legDurationSec 함수로 얻는다 (직선거리 근사 금지).
+ * 체류시간은 순서 결정에 영향을 주지 않는다(순서 무관하게 총합 동일) — 이동시간만 사용.
  */
 
 export const START_ID = 'START'
-export const END_ID = 'END'
 
 export type OptimizerWaypoint = {
   id: string
@@ -18,14 +20,14 @@ export type OptimizerWaypoint = {
 
 export type OptimizeInput = {
   waypoints: OptimizerWaypoint[]
-  /** 구간 소요시간(초). from/to 는 경유지 id 또는 START_ID/END_ID */
+  /** 구간 소요시간(초). from/to 는 도착지 id 또는 START_ID */
   legDurationSec: (fromId: string, toId: string) => number
 }
 
 export type Ordering = {
-  /** 경유지 id 를 방문 순서대로 나열 */
+  /** 도착지 id 를 방문 순서대로 나열 (마지막이 종점) */
   order: string[]
-  /** 총 이동시간(초). START→...→END 구간 합 */
+  /** 총 이동시간(초). START→도착지들 구간 합 */
   totalSec: number
 }
 
@@ -52,7 +54,7 @@ function permutations<T>(items: T[]): T[][] {
 function validate(waypoints: OptimizerWaypoint[]): void {
   if (waypoints.length > MAX_WAYPOINTS) {
     throw new Error(
-      `경유지는 최대 ${MAX_WAYPOINTS}개까지입니다 (요청: ${waypoints.length}개)`,
+      `도착지는 최대 ${MAX_WAYPOINTS}개까지입니다 (요청: ${waypoints.length}개)`,
     )
   }
   const fixed = waypoints
@@ -105,7 +107,9 @@ function totalDuration(
   order: string[],
   legDurationSec: (from: string, to: string) => number,
 ): number {
-  const path = [START_ID, ...order, END_ID]
+  // 종점(END) 고정이 없다. 경로는 출발지 → 도착지들 순서로만 이어지고
+  // 순서상 마지막 도착지가 곧 종점이다.
+  const path = [START_ID, ...order]
   let sum = 0
   for (let i = 0; i < path.length - 1; i++) {
     sum += legDurationSec(path[i], path[i + 1])

@@ -318,3 +318,11 @@
   --chalo-dialog-shadow: 0 10px 60px #24314235;
   --chalo-backdrop: #24314255;
 }
+:root {
+  --chalo-transit-hero: 44px;
+  --chalo-transit-large: 20px;
+}
+
+:root {
+  --chalo-transit-cyan: #087ca7;
+}

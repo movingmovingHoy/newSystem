@@ -5,7 +5,6 @@ import { CachedRouteProvider } from '@shared/cache'
 import {
   optimizeOrder,
   START_ID,
-  END_ID,
   type OptimizerWaypoint,
 } from './optimizer/optimizer'
 import { buildTransitOnlyRoute } from './strategies/transit-only'
@@ -13,15 +12,17 @@ import { buildCarRoutes, type WaypointParking } from './strategies/car-mixed'
 
 /**
  * 경로 플래너 (A 담당 오케스트레이터). AGENTS.md 7장 전체 흐름.
- * 입력(출발/도착/경유지+주차선택) → 순서 최적화 → 시나리오 3종 Route[] 생성.
+ * 입력(출발 + 도착지들 + 주차선택) → 순서 최적화 → 시나리오 3종 Route[] 생성.
  *
+ * "최종 도착지" 고정 개념이 없다. 도착지는 1~3개이며 모두 순번 대상이고,
+ * 순서상 마지막으로 방문하는 도착지가 그 여정의 종점이 된다.
  * 순서 최적화는 자차 구간 소요시간으로 한다 (AGENTS.md 9장, 직선거리 근사 금지).
  * 주차장 선택 결과는 입력으로 받는다 (실제 후보 선정은 B 담당 parking/finder).
  */
 
 export type PlanWaypoint = {
   waypoint: Waypoint
-  /** 이 경유지에 대해 선택된 주차장 */
+  /** 이 도착지에 대해 선택된 주차장 */
   parkingLotId: string
   parkingLocation: LatLng
   /** null = 요금 정보 없음 */
@@ -30,7 +31,7 @@ export type PlanWaypoint = {
 
 export type PlanInput = {
   origin: LatLng
-  destination: LatLng
+  /** 도착지 목록 (최소 1개). 순서상 마지막이 종점이 된다. */
   waypoints: PlanWaypoint[]
   departAt: string
   preference: Preference
@@ -70,7 +71,7 @@ async function buildCarDurationTable(
 }
 
 export type PlanResult = {
-  /** 확정된 방문 순서 (경유지 id) */
+  /** 확정된 방문 순서 (도착지 id). 마지막 항목이 종점이다. */
   order: string[]
   /** 점수 오름차순으로 정렬된 시나리오 경로들 */
   routes: Route[]
@@ -80,7 +81,11 @@ export async function planRoutes(
   providers: PlanProviders,
   input: PlanInput,
 ): Promise<PlanResult> {
-  const { origin, destination, waypoints, departAt, preference } = input
+  const { origin, waypoints, departAt, preference } = input
+
+  if (waypoints.length === 0) {
+    throw new Error('도착지는 최소 1개가 필요합니다.')
+  }
 
   // provider를 캐시 래퍼로 감싼다 (AGENTS.md 14장). 같은 키는 1번만 호출,
   // 동시 요청 합치기, 실패 시 만료 캐시 반환.
@@ -92,10 +97,9 @@ export async function planRoutes(
     }),
   }
 
-  // 1) 순서 최적화 (자차 구간 시간 기준)
+  // 1) 순서 최적화 (자차 구간 시간 기준). START만 고정, 도착지는 모두 순번 대상.
   const pointById = new Map<string, LatLng>()
   pointById.set(START_ID, origin)
-  pointById.set(END_ID, destination)
   for (const w of waypoints) pointById.set(w.waypoint.id, w.waypoint.location)
 
   const table = await buildCarDurationTable(
@@ -112,18 +116,23 @@ export async function planRoutes(
     legDurationSec: (from, to) => table.get(`${from}->${to}`) ?? 0,
   })
 
-  // 확정 순서대로 재배열
+  // 확정 순서대로 재배열. 순서상 마지막 도착지가 종점이 된다.
   const byId = new Map(waypoints.map((w) => [w.waypoint.id, w]))
   const orderedPlan = best.order.map((id) => byId.get(id)!)
-  const orderedWaypoints: Waypoint[] = orderedPlan.map((p) => p.waypoint)
-  const orderedParking: WaypointParking[] = orderedPlan.map((p) => ({
+  const endpoint = orderedPlan[orderedPlan.length - 1]
+  const destination = endpoint.waypoint.location
+  // 앞쪽 도착지들(=종점 제외)만 경유 지점으로 넘긴다. 종점의 체류시간은
+  // 도착으로 여정이 끝나므로 최종 시각/타임라인 계산에 포함하지 않는다.
+  const middlePlan = orderedPlan.slice(0, -1)
+  const orderedWaypoints: Waypoint[] = middlePlan.map((p) => p.waypoint)
+  const orderedParking: WaypointParking[] = middlePlan.map((p) => ({
     waypoint: p.waypoint,
     parkingLotId: p.parkingLotId,
     parkingLocation: p.parkingLocation,
     parkingFee: p.parkingFee,
   }))
 
-  // 2) 시나리오 3종 생성
+  // 2) 시나리오 3종 생성. destination = 순서상 마지막 도착지 위치.
   const carRoutes = await buildCarRoutes(cachedProviders, {
     origin,
     destination,

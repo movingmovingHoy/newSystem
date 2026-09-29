@@ -5,7 +5,6 @@ import type { RouteProvider, RouteQuery } from './providers'
 import type { Leg, Waypoint } from '@shared/types'
 
 const origin = { lat: 37.5547, lng: 126.9707 }
-const destination = { lat: 37.4979, lng: 127.0276 }
 
 function leg(
   mode: Leg['mode'],
@@ -84,15 +83,15 @@ const planWp = (
 }
 
 describe('planRoutes', () => {
-  it('경유지 순서를 최적화하고 시나리오 경로들을 점수순으로 반환한다', async () => {
+  it('도착지 순서를 최적화하고 시나리오 경로들을 점수순으로 반환한다', async () => {
     const result = await planRoutes(providers, {
       origin,
-      destination,
       waypoints: [planWp('A', 37.53, 127.0), planWp('B', 37.51, 127.01)],
       departAt: '2026-09-21T09:00:00.000Z',
       preference: 'time',
     })
 
+    // 도착지 2개 모두 순서에 포함 (마지막이 종점)
     expect(result.order).toHaveLength(2)
     expect(result.routes.length).toBeGreaterThanOrEqual(2)
     // 점수 오름차순
@@ -107,10 +106,9 @@ describe('planRoutes', () => {
     expect(scenarios).toContain('transit-only')
   })
 
-  it('fixedIndex가 있는 경유지는 그 순번에 고정된다', async () => {
+  it('fixedIndex가 있는 도착지는 그 순번에 고정된다', async () => {
     const result = await planRoutes(providers, {
       origin,
-      destination,
       waypoints: [
         planWp('A', 37.53, 127.0),
         planWp('B', 37.51, 127.01, 0), // B를 0번에 고정
@@ -120,30 +118,41 @@ describe('planRoutes', () => {
       preference: 'time',
     })
     expect(result.order[0]).toBe('B')
+    expect(result.order).toHaveLength(3)
   })
 
-  it('경유지 없이 출발→도착만도 동작한다', async () => {
+  it('도착지 1개면 그 도착지가 곧 종점이다', async () => {
     const result = await planRoutes(providers, {
       origin,
-      destination,
-      waypoints: [],
+      waypoints: [planWp('A', 37.53, 127.0)],
       departAt: '2026-09-21T09:00:00.000Z',
       preference: 'cost',
     })
-    expect(result.order).toEqual([])
+    expect(result.order).toEqual(['A'])
     expect(result.routes.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('도착지가 없으면 에러를 던진다 (최소 1개)', async () => {
+    await expect(
+      planRoutes(providers, {
+        origin,
+        waypoints: [],
+        departAt: '2026-09-21T09:00:00.000Z',
+        preference: 'cost',
+      }),
+    ).rejects.toThrow()
   })
 
   it('혼잡도 조회를 넘기면 경로 점수/근거에 반영된다', async () => {
     const result = await planRoutes(providers, {
       origin,
-      destination,
-      waypoints: [planWp('A', 37.53, 127.0)],
+      // 도착지 2개: 앞쪽 도착지는 stop 으로, 마지막은 종점으로 반영된다
+      waypoints: [planWp('A', 37.53, 127.0), planWp('B', 37.51, 127.01)],
       departAt: '2026-09-21T09:00:00.000Z',
       preference: 'time',
       congestionLevelAt: async () => 3,
     })
-    // 경유지 stop 에 혼잡 레벨이 실린다
+    // 앞쪽 도착지 stop 에 혼잡 레벨이 실린다
     const anyStopWithLevel = result.routes.some((r) =>
       r.stops.some((s) => s.congestion.level === 3),
     )
