@@ -7,3 +7,5 @@ export type {
   CarRoutesResult,
   WaypointParking,
 } from './car-mixed'
+export { buildParkTransitRoute } from './park-transit'
+export type { ParkTransitInput } from './park-transit'

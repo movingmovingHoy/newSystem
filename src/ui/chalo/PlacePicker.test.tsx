@@ -40,14 +40,14 @@ describe('장소 자동완성', () => {
     )
     fireEvent.click(screen.getByRole('combobox'))
     const input = screen.getByRole('textbox')
+    // 1글자: 디바운스 최소 길이 미만이라 API를 부르지 않는다
     fireEvent.change(input, { target: { value: '광' } })
     await tick()
     expect(fetch).not.toHaveBeenCalled()
+    // 2글자: 디바운스가 끝나기 전에는 아직 호출 전 (출발지는 121곳을 섞지 않는다)
     fireEvent.change(input, { target: { value: '광ㅎ' } })
-    expect(
-      screen.getAllByRole('option', { name: /광화문/ }).length,
-    ).toBeGreaterThan(0)
     expect(fetch).not.toHaveBeenCalled()
+    // 디바운스 경과 후 카카오 검색 호출
     fireEvent.change(input, { target: { value: '광화문' } })
     await tick()
     expect(fetch).toHaveBeenCalledTimes(1)

@@ -104,6 +104,44 @@ describe('planRoutes', () => {
     const scenarios = result.routes.map((r) => r.scenario)
     expect(scenarios).toContain('car-direct')
     expect(scenarios).toContain('transit-only')
+    // 도착지 2개이므로 park-transit(자차 주차 후 대중교통)도 포함
+    expect(scenarios).toContain('park-transit')
+  })
+
+  it('도착지 3개면 park-transit는 제공하지 않는다 (출발1+도착2 한정)', async () => {
+    const result = await planRoutes(providers, {
+      origin,
+      waypoints: [
+        planWp('A', 37.53, 127.0),
+        planWp('B', 37.51, 127.01),
+        planWp('C', 37.52, 127.02),
+      ],
+      departAt: '2026-09-21T09:00:00.000Z',
+      preference: 'time',
+    })
+    expect(result.routes.map((r) => r.scenario)).not.toContain('park-transit')
+  })
+
+  it('방문 순서를 바꾸면 park-transit의 주차지(첫 도착지)도 그 순서를 따른다', async () => {
+    const parkTransitParkId = async (
+      firstFixed: 'A' | 'B',
+    ): Promise<string | undefined> => {
+      const result = await planRoutes(providers, {
+        origin,
+        waypoints: [
+          planWp('A', 37.53, 127.0, firstFixed === 'A' ? 0 : 1),
+          planWp('B', 37.51, 127.01, firstFixed === 'B' ? 0 : 1),
+        ],
+        departAt: '2026-09-21T09:00:00.000Z',
+        preference: 'time',
+      })
+      const pt = result.routes.find((r) => r.scenario === 'park-transit')
+      // park-transit는 주차지(첫 도착지) 하나만 stop 으로 가진다
+      return pt?.stops[0]?.waypointId
+    }
+    // A를 먼저 방문하면 A에 주차, B를 먼저 방문하면 B에 주차
+    expect(await parkTransitParkId('A')).toBe('A')
+    expect(await parkTransitParkId('B')).toBe('B')
   })
 
   it('fixedIndex가 있는 도착지는 그 순번에 고정된다', async () => {

@@ -116,7 +116,9 @@ export function RouteResults({
                 <span>
                   {route.scenario === 'transit-only'
                     ? '출발지부터 마지막 목적지까지'
-                    : '선택한 주차장에서 왕복 접근'}
+                    : route.scenario === 'park-transit'
+                      ? '첫 도착지에 주차 후 대중교통'
+                      : '선택한 주차장에서 왕복 접근'}
                 </span>
               </p>
               <div className="card-metrics">

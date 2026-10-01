@@ -36,11 +36,11 @@ export function usePlaceSearch(
       clearTimeout(timer)
     }
   }, [query, kind, open])
-  const local =
-    kind === 'area' || query.trim().length >= 2 ? findAreas(query) : []
-  return {
-    results: kind === 'area' ? local : [...remote, ...local],
-    loading,
-    error,
+  // 출발지(origin)는 전국 어디나 가능하므로 카카오 장소검색 결과만 쓴다.
+  // 서울 121곳(local)은 혼잡도용이라 도착지(area)에서만 보여준다.
+  if (kind === 'origin') {
+    return { results: remote, loading, error }
   }
+  const local = findAreas(query)
+  return { results: local, loading, error }
 }

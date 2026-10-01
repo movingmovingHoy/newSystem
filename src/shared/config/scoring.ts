@@ -56,6 +56,8 @@ export const SCENARIO_SENSITIVITY: Record<Scenario, number> = {
   'car-direct': 1.0,
   mixed: 0.6,
   'transit-only': 0.3,
+  // 자차 1구간 + 대중교통 1구간 혼합. transit-only와 mixed 사이로 둔다.
+  'park-transit': 0.5,
 }
 
 /**

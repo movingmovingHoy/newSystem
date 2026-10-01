@@ -101,9 +101,7 @@ export function PlacePicker({
             />
           </div>
           <p className="picker-caption">
-            {kind === 'origin'
-              ? '카카오 장소검색 · 서울 121곳 추천'
-              : '서울시 주요 121곳'}
+            {kind === 'origin' ? '카카오 장소검색 · 전국' : '서울시 주요 121곳'}
           </p>
           {error && <p role="alert">{error}</p>}
           <div role="listbox" id={`${label}-list`} aria-label={`${label} 목록`}>
