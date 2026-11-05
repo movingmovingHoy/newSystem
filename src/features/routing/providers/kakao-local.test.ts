@@ -28,6 +28,17 @@ describe('relevanceRank', () => {
     expect(relevanceRank('서울숲 성수점', '성수')).toBe(2)
     expect(relevanceRank('서울숲카페거리', '성수')).toBe(3)
   })
+
+  it('공백 차이를 무시하고 비교한다', () => {
+    // 검색어에 공백이 있어도 붙여 쓴 이름과 접두일치로 본다
+    expect(relevanceRank('성수카페거리', '성수 카페거리')).toBe(0)
+    expect(relevanceRank('성수카페거리', '성수 카페')).toBe(1)
+    // 이름에 공백이 있어도 마찬가지
+    expect(relevanceRank('성수 카페 거리', '성수카페')).toBe(1)
+    expect(relevanceRank('서울숲 성수점', '숲성수')).toBe(2)
+    // 공백만 있는 검색어는 미포함 취급
+    expect(relevanceRank('성수카페거리', '   ')).toBe(3)
+  })
 })
 
 describe('searchPlaces 관련도 정렬', () => {

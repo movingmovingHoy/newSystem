@@ -181,3 +181,49 @@ describe('buildParkTransitRoute', () => {
     expect(busy.score).toBeGreaterThan(calm.score)
   })
 })
+
+describe('buildParkTransitRoute 피로도 (정체)', () => {
+  const jammedCar = (congestedDriveSec?: number): RouteProvider => ({
+    mode: 'car',
+    async route(q: RouteQuery): Promise<Leg[]> {
+      return [
+        {
+          mode: 'car',
+          from: q.from,
+          to: q.to,
+          departAt: q.departAt ?? '',
+          arriveAt: q.departAt ?? '',
+          durationSec: 1200,
+          cost: 0,
+          walkDistanceM: 0,
+          transfers: 0,
+          fatigue: 0,
+          ...(congestedDriveSec !== undefined ? { congestedDriveSec } : {}),
+        },
+      ]
+    },
+  })
+  const input = {
+    origin,
+    parkAt: wp('A', 37.52, 127.0, 30),
+    destination: wp('B', 37.51, 127.01, 0),
+    departAt: '2026-09-21T09:00:00.000Z',
+    preference: 'time' as const,
+  }
+
+  it('자차 구간의 정체 시간이 피로도에 더해진다 (정체 1분당 0.8점)', async () => {
+    const calm = await buildParkTransitRoute(
+      { car: jammedCar(), transit: transitProvider(1500) },
+      input,
+    )
+    const jam = await buildParkTransitRoute(
+      { car: jammedCar(600), transit: transitProvider(1500) },
+      input,
+    )
+    // 도보 300m × 0.02 = 6, 환승 1회 × 5 = 5 → 정체 없을 때 11
+    expect(calm.totals.fatigue).toBeCloseTo(11)
+    // 정체 600초(10분) × 0.8 = 8점 추가
+    expect(jam.totals.fatigue).toBeCloseTo(19)
+    expect(jam.score).toBeGreaterThan(calm.score)
+  })
+})

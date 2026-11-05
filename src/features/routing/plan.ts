@@ -1,6 +1,10 @@
 import type { LatLng, Route, Waypoint } from '@shared/types'
-import type { Preference } from '@shared/config'
+import { REALTIME_PARKING_MAX_DELAY_MIN, type Preference } from '@shared/config'
 import type { RouteProvider } from './providers'
+import {
+  evaluateParkingPressure,
+  parkingPressureReasons,
+} from './scoring/parking-pressure'
 import { CachedRouteProvider } from '@shared/cache'
 import {
   optimizeOrder,
@@ -37,6 +41,14 @@ export type PlanInput = {
   departAt: string
   preference: Preference
   congestionLevelAt?: (loc: LatLng, arriveAt: Date) => Promise<number | null>
+  /**
+   * 위치 인근의 실시간 주차 포화율(0~1) 조회. AGENTS.md 8-2.
+   * 넘기지 않으면 기존 동작(park-transit 항상 생성, 주차 근거 없음).
+   * 넘기면 최종 도착지 인근 정보가 없을 때(null) park-transit 를 만들지 않는다.
+   */
+  parkingOccupancyAt?: (loc: LatLng) => Promise<{ ratio: number } | null>
+  /** 현재 시각. 실시간 값은 "지금"뿐이라 출발 지연 판단에 쓴다. 테스트 주입용, 기본 new Date() */
+  now?: Date
 }
 
 export type PlanProviders = {
@@ -165,15 +177,65 @@ export async function planRoutes(
       location: p.waypoint.location,
       dwellMin: p.waypoint.dwellMin,
     })
-    const parkTransit = await buildParkTransitRoute(cachedProviders, {
-      origin,
-      parkAt: toWaypoint(orderedPlan[0]),
-      destination: toWaypoint(orderedPlan[1]),
-      departAt,
-      preference,
-      congestionLevelAt: input.congestionLevelAt,
-    })
-    routes.push(parkTransit)
+    const first = toWaypoint(orderedPlan[0])
+    const second = toWaypoint(orderedPlan[1])
+
+    // 실시간 주차 정보 (AGENTS.md 8-2). 조회를 넘기지 않으면 기존 동작을 유지한다.
+    // 최종 도착지(B) 인근 정보가 없으면(또는 출발이 너무 늦으면) 만들지 않는다.
+    const lookup = input.parkingOccupancyAt
+    let destOccupancy: { ratio: number } | null = null
+    let firstOccupancy: { ratio: number } | null = null
+    let include = true
+    if (lookup) {
+      const safeLookup = async (loc: LatLng) => {
+        try {
+          return await lookup(loc)
+        } catch {
+          // 조회 실패는 "정보 없음"으로 본다. 다른 시나리오 계산은 계속한다.
+          return null
+        }
+      }
+      const delayMin =
+        (Date.parse(departAt) - (input.now ?? new Date()).getTime()) / 60_000
+      destOccupancy =
+        delayMin > REALTIME_PARKING_MAX_DELAY_MIN
+          ? null
+          : await safeLookup(second.location)
+      if (destOccupancy) firstOccupancy = await safeLookup(first.location)
+      include = destOccupancy !== null
+    }
+
+    if (include) {
+      const parkTransit = await buildParkTransitRoute(cachedProviders, {
+        origin,
+        parkAt: first,
+        destination: second,
+        departAt,
+        preference,
+        congestionLevelAt: input.congestionLevelAt,
+      })
+      if (destOccupancy) {
+        // B 도착 시각 = A 출발 시각 + 대중교통 소요 (자차 구간 뒤 체류 후 출발)
+        const transitSec = parkTransit.legs
+          .slice(1)
+          .reduce((sum, leg) => sum + leg.durationSec, 0)
+        const arriveAtB = new Date(
+          Date.parse(parkTransit.stops[0].departAt) + transitSec * 1000,
+        )
+        const level = input.congestionLevelAt
+          ? await input.congestionLevelAt(second.location, arriveAtB)
+          : null
+        const pressure = evaluateParkingPressure({
+          occupancyRatio: destOccupancy.ratio,
+          congestionLevel: level,
+        })
+        parkTransit.reasons = [
+          ...parkTransit.reasons,
+          ...parkingPressureReasons(pressure, firstOccupancy),
+        ]
+      }
+      routes.push(parkTransit)
+    }
   }
 
   routes.sort((a, b) => a.score - b.score)

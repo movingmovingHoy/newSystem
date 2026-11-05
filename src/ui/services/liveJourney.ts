@@ -8,6 +8,7 @@ import {
   SeoulCongestionProvider,
 } from '@features/congestion'
 import { HttpParkingProvider } from '@features/parking/providers/http'
+import { HttpLiveParkingProvider } from '@features/parking/providers/http-live'
 import { createInitialDraft, createJourneyService } from './journey'
 import { findAreas } from './catalog'
 
@@ -28,6 +29,7 @@ export function createLiveDraft() {
 }
 export function createLiveJourneyService() {
   const congestion = new CongestionService(new SeoulCongestionProvider())
+  const liveParking = new HttpLiveParkingProvider()
   return createJourneyService(
     {
       car: new KakaoCarProvider(),
@@ -40,5 +42,7 @@ export function createLiveJourneyService() {
       const result = await congestion.getCongestion(location, arriveAt)
       return result.level
     },
+    // 목적지 주변 실시간 주차 포화율. 실패하면 던지고, 정보 없음 처리는 planRoutes 가 한다.
+    (location) => liveParking.occupancy(location),
   )
 }

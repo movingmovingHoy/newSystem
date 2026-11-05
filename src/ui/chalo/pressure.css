@@ -1,0 +1,84 @@
+/* 목적지 주변 주차 포화 배지. 색·간격·글꼴은 tokens.css 의 변수만 쓴다 (AGENTS.md 5장). */
+.pressure-badge {
+  --pressure-color: var(--color-success);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--pressure-color);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-align: left;
+}
+
+.pressure-badge[data-level='mid'] {
+  --pressure-color: var(--color-warning);
+}
+
+.pressure-badge[data-level='high'] {
+  --pressure-color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
+.pressure-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.pressure-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.pressure-value {
+  display: inline-flex;
+  align-items: baseline;
+  color: var(--pressure-color);
+  font-size: var(--font-size-metric);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+}
+
+.pressure-value small {
+  margin-left: var(--space-1);
+  font-size: var(--font-size-lg);
+}
+
+.pressure-badge[data-size='detail'] .pressure-value {
+  font-size: var(--font-size-hero);
+}
+
+.pressure-badge[data-size='detail'] {
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-4);
+}
+
+.pressure-meter {
+  height: var(--space-2);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--color-border);
+}
+
+.pressure-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--pressure-color);
+}
+
+.pressure-verdict {
+  margin: 0;
+  color: var(--pressure-color);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+.pressure-detail {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}

@@ -3,7 +3,7 @@ import type { RouteProvider } from '../providers'
 import { computeFatigue } from '../scoring/fatigue'
 import { scoreRoute } from '../scoring/scoring'
 import { buildTimeline } from '../timeline/timeline'
-import { sumTotals } from './totals'
+import { sumCongestedDriveMin, sumTotals } from './totals'
 import type { Preference } from '@shared/config'
 
 /**
@@ -95,7 +95,7 @@ export async function buildParkTransitRoute(
     walkDistanceM: totals.walkDistanceM,
     transfers: totals.transfers,
     standingMin: 0,
-    congestedDriveMin: 0,
+    congestedDriveMin: sumCongestedDriveMin(legs),
   })
 
   const destLevel = input.congestionLevelAt

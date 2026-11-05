@@ -66,7 +66,8 @@ describe('OdsayTransitProvider', () => {
     expect(leg.durationSec).toBe(45 * 60)
     expect(leg.cost).toBe(1500) // ODsay 실제 요금
     expect(leg.walkDistanceM).toBe(320)
-    expect(leg.transfers).toBe(1) // bus0 + subway1
+    // 지하철 1회 탑승(직행)은 환승 0회. ODsay 의 TransitCount 는 탑승 횟수다.
+    expect(leg.transfers).toBe(0)
     expect(leg.arriveAt).toBe('2026-09-21T09:45:00.000Z')
 
     // 구간 상세: 도보 → 지하철(2호선 강남→역삼) → 도보
@@ -108,7 +109,47 @@ describe('OdsayTransitProvider', () => {
     })
     const legs = await new OdsayTransitProvider().route({ from, to })
     expect(legs[0].mode).toBe('bus')
-    expect(legs[0].transfers).toBe(1)
+    // 버스 1회 탑승(직행)은 환승 0회
+    expect(legs[0].transfers).toBe(0)
+  })
+
+  describe('환승 횟수 = 탑승 횟수 - 1', () => {
+    const transfersFor = async (bus: number, subway: number) => {
+      mockFetchOnce({
+        result: {
+          path: [
+            {
+              pathType: 3,
+              info: {
+                totalTime: 40,
+                payment: 1500,
+                totalWalk: 100,
+                busTransitCount: bus,
+                subwayTransitCount: subway,
+              },
+            },
+          ],
+        },
+      })
+      const legs = await new OdsayTransitProvider().route({ from, to })
+      return legs[0].transfers
+    }
+
+    it('지하철만 2번 타면 환승 1회', async () => {
+      expect(await transfersFor(0, 2)).toBe(1)
+    })
+
+    it('버스 1번 + 지하철 1번이면 환승 1회', async () => {
+      expect(await transfersFor(1, 1)).toBe(1)
+    })
+
+    it('지하철 2번 + 버스 1번이면 환승 2회', async () => {
+      expect(await transfersFor(1, 2)).toBe(2)
+    })
+
+    it('탑승이 0회(도보뿐)여도 음수가 되지 않는다', async () => {
+      expect(await transfersFor(0, 0)).toBe(0)
+    })
   })
 
   it('ODsay error 객체가 오면 예외를 던진다', async () => {

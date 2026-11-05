@@ -36,10 +36,11 @@ const MAX_PAGES = 3
  * 카카오가 주는 순서는 거리/정확도가 섞여 있어, 이름이 검색어와
  * 더 잘 맞는 쪽(완전일치 > 접두 일치 > 앞쪽 포함)을 우선한다.
  * 이름에 검색어가 없으면(주소로만 매칭된 경우) 카카오 원래 순서를 유지한다.
+ * 공백은 모두 제거하고 비교한다 ("성수 카페거리" = "성수카페거리").
  */
 export function relevanceRank(name: string, query: string): number {
-  const n = name.trim().toLowerCase()
-  const q = query.trim().toLowerCase()
+  const n = name.replace(/\s+/g, '').toLowerCase()
+  const q = query.replace(/\s+/g, '').toLowerCase()
   if (!q) return 3
   if (n === q) return 0 // 완전 일치
   if (n.startsWith(q)) return 1 // 접두 일치 (성수카페거리 ← "성수")

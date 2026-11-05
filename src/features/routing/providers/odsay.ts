@@ -167,8 +167,11 @@ export class OdsayTransitProvider implements RouteProvider {
 
     const info = path.info ?? {}
     const durationSec = (info.totalTime ?? 0) * 60
-    const transfers =
+    // ODsay 의 busTransitCount/subwayTransitCount 는 "환승 횟수"가 아니라 탑승 횟수다
+    // (2호선 직행 = subwayTransitCount 1). 환승은 탑승 횟수 - 1, 음수는 0으로 막는다.
+    const boardings =
       (info.busTransitCount ?? 0) + (info.subwayTransitCount ?? 0)
+    const transfers = Math.max(0, boardings - 1)
 
     const leg: Leg = {
       mode: pickMode(path.pathType),

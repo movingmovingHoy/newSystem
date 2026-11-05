@@ -1,5 +1,5 @@
 import type { Route, TransitStep } from '@shared/types'
-import { CONGEST_LEVELS } from '@shared/config'
+import { CONGEST_LEVELS, PARKING_PRESSURE_THRESHOLD } from '@shared/config'
 import {
   departureIso,
   type JourneyDraft,
@@ -135,5 +135,50 @@ export function displayTimeline(
     visits,
     finalArriveAt: new Date(cursor).toISOString(),
     endpointSteps,
+  }
+}
+
+/** 목적지 주변 주차 포화 표시용 값. 포화율 수준(색)은 CSS 토큰이 정한다. */
+export type ParkingPressureView = {
+  /** 목적지 주변 포화율 0~100 */
+  percent: number
+  /** 압박점수. 첫 도착지도 포화여서 추천을 뺀 경우처럼 문구에 없으면 percent 를 쓴다 */
+  score: number
+  recommended: boolean
+  /** low <50, mid 50~(추천 기준-1), high >=추천 기준(70) (포화율 기준) */
+  level: 'low' | 'mid' | 'high'
+  /** 첫 도착지도 포화여서 추천을 뺀 경우 그 포화율, 아니면 null */
+  firstPercent: number | null
+  /** 첫 도착지 주변 실시간 정보가 없는 경우 */
+  firstUnknown: boolean
+}
+
+/**
+ * 임시: Route 에 구조화 필드가 없어 근거 문구(reasons)에서 포화율을 읽는다.
+ * 문구는 routing/scoring/parking-pressure.ts 의 parkingPressureReasons 가 만든다.
+ * 문구를 바꾸면 pressure-view.test.ts 가 실제 생성 함수로 검증해 깨짐을 알려준다.
+ * 나중에 Route 에 선택 필드를 추가하면 이 파싱은 없앤다.
+ */
+export function parkingPressureView(route: Route): ParkingPressureView | null {
+  if (route.scenario !== 'park-transit') return null
+  const text = route.reasons.join('\n')
+  const percentMatch = /목적지 주변 주차 포화 (\d+)%/.exec(text)
+  if (!percentMatch) return null
+  const percent = Number(percentMatch[1])
+  const scoreMatch = /주차 혼잡 점수 (\d+)점/.exec(text)
+  const firstMatch = /첫 도착지 주변 주차도 포화 (\d+)%/.exec(text)
+  return {
+    percent,
+    score: scoreMatch ? Number(scoreMatch[1]) : percent,
+    recommended: text.includes('주차 후 대중교통 추천'),
+    // 포화율만으로도 추천 기준에 닿는 구간(70% 이상)을 가장 진한 색으로 보여준다.
+    level:
+      percent >= PARKING_PRESSURE_THRESHOLD
+        ? 'high'
+        : percent >= 50
+          ? 'mid'
+          : 'low',
+    firstPercent: firstMatch ? Number(firstMatch[1]) : null,
+    firstUnknown: text.includes('첫 도착지 주변 주차 정보 없음'),
   }
 }

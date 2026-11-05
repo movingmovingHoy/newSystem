@@ -31,6 +31,17 @@ export const FATIGUE_WEIGHTS = {
 } as const
 
 /**
+ * 카카오 자차 길찾기 도로별 traffic_state 중 "운전 정체시간"으로 칠 상태와 반영 비율.
+ * 1 정체, 2 지체: 소요시간 전부 / 3 서행: 절반. 그 외(0 정보 없음, 4 원활, 6 사고)는 제외.
+ * 튜닝 대상. AGENTS.md 12장.
+ */
+export const CONGESTED_TRAFFIC_WEIGHT: Readonly<Record<number, number>> = {
+  1: 1,
+  2: 1,
+  3: 0.5,
+}
+
+/**
  * 서울시 실시간 도시데이터 혼잡 단계. 응답의 CONGEST_LVL 문자열이 이 4단계다.
  * (공식 화면 4단계 확인: 여유/보통/약간 붐빔/붐빔)
  * 인덱스: 0 여유, 1 보통, 2 약간 붐빔, 3 붐빔

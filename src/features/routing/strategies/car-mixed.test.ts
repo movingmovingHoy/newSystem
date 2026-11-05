@@ -174,4 +174,39 @@ describe('buildCarRoutes', () => {
     // 자차 2구간(출발→주차, 주차→도착) cost 500*2 + 주차비 3000 = 4000
     expect(res.carDirect.totals.cost).toBe(4000)
   })
+
+  it('자차 구간의 정체 시간이 피로도에 반영된다 (정체 1분당 0.8점)', async () => {
+    const jammedCar: RouteProvider = {
+      mode: 'car',
+      async route(q: RouteQuery): Promise<Leg[]> {
+        // 구간마다 정체 600초(10분)
+        return [leg('car', q, 900, { cost: 500, congestedDriveSec: 600 })]
+      },
+    }
+    const input = {
+      origin,
+      destination,
+      ordered: [parking('A', 2000)],
+      departAt: '2026-09-21T09:00:00.000Z',
+      preference: 'time' as const,
+    }
+    const calm = await buildCarRoutes(
+      {
+        car: carProvider(),
+        walk: walkProvider(200),
+        transit: transitProvider(),
+      },
+      input,
+    )
+    const jam = await buildCarRoutes(
+      { car: jammedCar, walk: walkProvider(200), transit: transitProvider() },
+      input,
+    )
+    // 자차 2구간 × 10분 = 20분 정체 → 20 × 0.8 = 16점 증가
+    expect(
+      jam.carDirect.totals.fatigue - calm.carDirect.totals.fatigue,
+    ).toBeCloseTo(16)
+    // 피로도가 올라간 만큼 종합점수는 나빠진다(커진다)
+    expect(jam.carDirect.score).toBeGreaterThan(calm.carDirect.score)
+  })
 })

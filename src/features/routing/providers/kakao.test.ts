@@ -101,3 +101,91 @@ describe('KakaoCarProvider', () => {
     ).rejects.toThrow()
   })
 })
+
+describe('KakaoCarProvider 정체 시간 (congestedDriveSec)', () => {
+  const road = (duration: number, traffic_state: number) => ({
+    duration,
+    traffic_state,
+    vertexes: [127.0, 37.5, 127.001, 37.501],
+  })
+
+  it('정체·지체는 전부, 서행은 절반, 원활·정보 없음은 제외해 합산한다', async () => {
+    mockFetchOnce({
+      routes: [
+        {
+          result_code: 0,
+          summary: { duration: 1800, distance: 12000 },
+          sections: [
+            {
+              roads: [
+                road(300, 1), // 정체 300초 → 300
+                road(200, 2), // 지체 200초 → 200
+                road(400, 3), // 서행 400초 → 200
+                road(500, 4), // 원활 → 제외
+                road(100, 0), // 정보 없음 → 제외
+              ],
+            },
+            { roads: [road(60, 1)] }, // 다른 section 의 정체 60초 → 60
+          ],
+        },
+      ],
+    })
+    const [leg] = await new KakaoCarProvider().route({
+      from: seoulStation,
+      to: gangnam,
+    })
+    expect(leg.congestedDriveSec).toBe(760)
+  })
+
+  it('정체 도로가 없으면 0이다', async () => {
+    mockFetchOnce({
+      routes: [
+        {
+          result_code: 0,
+          summary: { duration: 600, distance: 3000 },
+          sections: [{ roads: [road(600, 4)] }],
+        },
+      ],
+    })
+    const [leg] = await new KakaoCarProvider().route({
+      from: seoulStation,
+      to: gangnam,
+    })
+    expect(leg.congestedDriveSec).toBe(0)
+  })
+
+  it('도로 정보(sections)가 없으면 정체 시간 필드를 넣지 않는다', async () => {
+    mockFetchOnce({
+      routes: [{ result_code: 0, summary: { duration: 600, distance: 3000 } }],
+    })
+    const [leg] = await new KakaoCarProvider().route({
+      from: seoulStation,
+      to: gangnam,
+    })
+    expect(leg.congestedDriveSec).toBeUndefined()
+  })
+
+  it('duration 이 숫자가 아닌 도로는 무시한다', async () => {
+    mockFetchOnce({
+      routes: [
+        {
+          result_code: 0,
+          summary: { duration: 600, distance: 3000 },
+          sections: [
+            {
+              roads: [
+                { traffic_state: 1, vertexes: [] }, // duration 없음
+                road(120, 1),
+              ],
+            },
+          ],
+        },
+      ],
+    })
+    const [leg] = await new KakaoCarProvider().route({
+      from: seoulStation,
+      to: gangnam,
+    })
+    expect(leg.congestedDriveSec).toBe(120)
+  })
+})

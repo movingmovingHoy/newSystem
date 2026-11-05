@@ -19,6 +19,7 @@ import {
 import { placeById } from '../services/catalog'
 import { Icon } from './Icons'
 import { TransitJourney } from './TransitJourney'
+import { RouteParkingPressure } from './ParkingPressureBadge'
 
 export function RouteResults({
   live = false,
@@ -127,6 +128,7 @@ export function RouteResults({
                 <strong>{minutes(route.totals.durationSec)}</strong>
                 <span>{won(route.totals.cost)}</span>
               </div>
+              <RouteParkingPressure route={route} size="card" />
               <div className="card-bottom">
                 <span>
                   <Icon name="walk" size={14} />
@@ -159,6 +161,7 @@ export function RouteResults({
             이동 {minutes(selected.totals.durationSec)}
           </span>
         </div>
+        <RouteParkingPressure route={selected} size="detail" />
         <div className="detail-columns">
           {isTransit ? (
             <TransitJourney
@@ -302,7 +305,7 @@ export function RouteResults({
               <b>{selected.totals.fatigue.toFixed(1)} / 100</b>
             </div>
             <div>
-              <span>종합점수 · 낮을수록 좋음</span>
+              <span>종합 부담도 · 낮을수록 좋음</span>
               <b>{selected.score.toFixed(1)} / 100</b>
             </div>
             <ul className="reason-list">

@@ -1,4 +1,5 @@
 import type { Leg, LatLng } from '@shared/types'
+import { CONGESTED_TRAFFIC_WEIGHT } from '@shared/config'
 import type { RouteProvider, RouteQuery } from './types'
 
 /**
@@ -21,16 +22,42 @@ type KakaoDirectionsResponse = {
       distance?: number
       fare?: { taxi?: number; toll?: number }
     }
-    sections?: Array<{
-      roads?: Array<{
-        // 도로 좌표. [lng0, lat0, lng1, lat1, ...] 평면 배열
-        vertexes?: number[]
-      }>
-    }>
+    sections?: KakaoSection[]
   }>
 }
 
-type KakaoSection = { roads?: Array<{ vertexes?: number[] }> }
+type KakaoRoad = {
+  // 도로 좌표. [lng0, lat0, lng1, lat1, ...] 평면 배열
+  vertexes?: number[]
+  /** 이 도로의 소요시간(초) */
+  duration?: number
+  /** 0 정보 없음, 1 정체, 2 지체, 3 서행, 4 원활, 6 사고(통행 불가) */
+  traffic_state?: number
+}
+
+type KakaoSection = { roads?: KakaoRoad[] }
+
+/**
+ * 도로별 traffic_state 로 "정체로 본 운전 시간(초)"을 합산한다. AGENTS.md 12장.
+ * 반영 비율은 shared/config 의 CONGESTED_TRAFFIC_WEIGHT (정체·지체 전부, 서행 절반).
+ * sections 자체가 없으면 정체 정보가 없는 것이라 undefined 를 돌려준다.
+ */
+function sumCongestedSec(
+  sections: KakaoSection[] | undefined,
+): number | undefined {
+  if (!sections) return undefined
+  let total = 0
+  for (const sec of sections) {
+    for (const road of sec.roads ?? []) {
+      const weight = CONGESTED_TRAFFIC_WEIGHT[road.traffic_state ?? -1]
+      if (!weight) continue
+      if (typeof road.duration !== 'number' || !Number.isFinite(road.duration))
+        continue
+      total += road.duration * weight
+    }
+  }
+  return Math.round(total)
+}
 
 /** sections[].roads[].vertexes(평면 배열)를 지도용 LatLng[] 폴리라인으로 편다 */
 function extractPath(sections: KakaoSection[] | undefined): LatLng[] {
@@ -86,6 +113,7 @@ export class KakaoCarProvider implements RouteProvider {
     const durationSec = route.summary?.duration ?? 0
     const toll = route.summary?.fare?.toll ?? 0
     const path = extractPath(route.sections)
+    const congestedDriveSec = sumCongestedSec(route.sections)
 
     const leg: Leg = {
       mode: 'car',
@@ -98,6 +126,7 @@ export class KakaoCarProvider implements RouteProvider {
       walkDistanceM: 0,
       transfers: 0,
       fatigue: 0, // 정체 기반 피로도는 scoring 단위에서 다룬다
+      ...(congestedDriveSec !== undefined ? { congestedDriveSec } : {}),
       ...(path.length > 0 ? { path } : {}),
     }
     return [leg]

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { planRoutes } from './plan'
 import type { PlanProviders, PlanWaypoint } from './plan'
 import type { RouteProvider, RouteQuery } from './providers'
@@ -195,5 +195,174 @@ describe('planRoutes', () => {
       r.stops.some((s) => s.congestion.level === 3),
     )
     expect(anyStopWithLevel).toBe(true)
+  })
+})
+
+describe('planRoutes 목적지 주차 압박 (park-transit)', () => {
+  const A_LAT = 37.53
+  const departAt = '2026-09-21T09:00:00.000Z'
+  const minutes = (n: number) => n * 60_000
+  /** A(첫 도착지)·B(최종 도착지)의 인근 포화율을 돌려주는 가짜 조회. null = 정보 없음 */
+  const occ = (a: number | null, b: number | null) =>
+    vi.fn(async (loc: { lat: number }) => {
+      const ratio = loc.lat === A_LAT ? a : b
+      return ratio === null ? null : { ratio }
+    })
+  const input = (extra: Record<string, unknown> = {}) => ({
+    origin,
+    // A 를 0번, B 를 1번에 고정: 첫 도착지 = A(주차), 최종 도착지 = B(대중교통)
+    waypoints: [planWp('A', A_LAT, 127.0, 0), planWp('B', 37.51, 127.01, 1)],
+    departAt,
+    preference: 'time' as const,
+    now: new Date(departAt),
+    ...extra,
+  })
+  type Result = Awaited<ReturnType<typeof planRoutes>>
+  const parkTransit = (r: Result) =>
+    r.routes.find((x) => x.scenario === 'park-transit')
+  const reasonsOf = (r: Result) => (parkTransit(r)?.reasons ?? []).join(' | ')
+
+  it('실시간 조회를 넣지 않으면 기존대로 만들고 주차 근거는 붙이지 않는다', async () => {
+    const result = await planRoutes(providers, input())
+    expect(parkTransit(result)).toBeDefined()
+    expect(reasonsOf(result)).not.toContain('목적지 주변 주차')
+  })
+
+  it('최종 도착지 인근 정보가 없으면 park-transit 를 만들지 않는다', async () => {
+    const result = await planRoutes(
+      providers,
+      input({ parkingOccupancyAt: occ(0.3, null) }),
+    )
+    expect(parkTransit(result)).toBeUndefined()
+    // 다른 시나리오는 그대로 나온다
+    const scenarios = result.routes.map((r) => r.scenario)
+    expect(scenarios).toContain('car-direct')
+    expect(scenarios).toContain('transit-only')
+  })
+
+  it('최종 도착지 정보가 없으면 첫 도착지는 조회하지 않는다', async () => {
+    const lookup = occ(0.3, null)
+    await planRoutes(providers, input({ parkingOccupancyAt: lookup }))
+    expect(lookup).toHaveBeenCalledTimes(1)
+    expect(lookup.mock.calls[0][0].lat).toBe(37.51)
+  })
+
+  it('출발이 지금보다 60분 넘게 뒤이면 정보 없음으로 보고 제외한다', async () => {
+    const lookup = occ(0.3, 0.9)
+    const late = await planRoutes(
+      providers,
+      input({
+        parkingOccupancyAt: lookup,
+        now: new Date(Date.parse(departAt) - minutes(61)),
+      }),
+    )
+    expect(parkTransit(late)).toBeUndefined()
+    expect(lookup).not.toHaveBeenCalled()
+  })
+
+  it('출발이 정확히 60분 뒤이면 아직 정보로 쓴다', async () => {
+    const result = await planRoutes(
+      providers,
+      input({
+        parkingOccupancyAt: occ(0.3, 0.9),
+        now: new Date(Date.parse(departAt) - minutes(60)),
+      }),
+    )
+    expect(parkTransit(result)).toBeDefined()
+  })
+
+  it('조회가 실패해도 전체 계산은 죽지 않고 park-transit 만 제외한다', async () => {
+    const result = await planRoutes(
+      providers,
+      input({
+        parkingOccupancyAt: vi.fn().mockRejectedValue(new Error('down')),
+      }),
+    )
+    expect(parkTransit(result)).toBeUndefined()
+    expect(result.routes.map((r) => r.scenario)).toContain('car-direct')
+  })
+
+  it('포화 90% 면 포화율과 추천 근거를 붙인다', async () => {
+    const result = await planRoutes(
+      providers,
+      input({ parkingOccupancyAt: occ(0.3, 0.9) }),
+    )
+    const text = reasonsOf(result)
+    expect(text).toContain('목적지 주변 주차 포화 90%')
+    expect(text).toContain('주차 후 대중교통 추천')
+  })
+
+  it('목적지 혼잡도가 점수에 더해져 포화 60%도 붐빔이면 추천한다 (구성은 숨김)', async () => {
+    const crowded = await planRoutes(
+      providers,
+      input({
+        parkingOccupancyAt: occ(0.3, 0.6),
+        congestionLevelAt: async () => 3, // 60 + 20 = 80
+      }),
+    )
+    const text = reasonsOf(crowded)
+    expect(text).toContain('주차 후 대중교통 추천')
+    expect(text).toContain('주차 혼잡 점수 80점')
+    expect(text).not.toContain('혼잡 가산')
+    // 같은 포화율이라도 혼잡이 여유면 60점이라 추천하지 않는다
+    const calm = await planRoutes(
+      providers,
+      input({
+        parkingOccupancyAt: occ(0.3, 0.6),
+        congestionLevelAt: async () => 0,
+      }),
+    )
+    expect(reasonsOf(calm)).not.toContain('주차 후 대중교통 추천')
+  })
+
+  it('포화 40% + 붐빔(60점)은 추천하지 않고 여유 근거를 붙인다', async () => {
+    const result = await planRoutes(
+      providers,
+      input({
+        parkingOccupancyAt: occ(0.3, 0.4),
+        congestionLevelAt: async () => 3,
+      }),
+    )
+    const text = reasonsOf(result)
+    expect(text).toContain('여유')
+    expect(text).not.toContain('주차 후 대중교통 추천')
+  })
+
+  it('첫 도착지 인근도 80% 이상 포화면 추천하지 않는다고 알린다', async () => {
+    const result = await planRoutes(
+      providers,
+      input({ parkingOccupancyAt: occ(0.85, 0.9) }),
+    )
+    const text = reasonsOf(result)
+    expect(text).toContain('첫 도착지 주변 주차도 포화 85%')
+    expect(text).not.toContain('주차 후 대중교통 추천')
+    // 카드는 유지된다
+    expect(parkTransit(result)).toBeDefined()
+  })
+
+  it('첫 도착지 인근 정보가 없으면 카드는 유지하고 그 사실만 표시한다', async () => {
+    const result = await planRoutes(
+      providers,
+      input({ parkingOccupancyAt: occ(null, 0.9) }),
+    )
+    expect(parkTransit(result)).toBeDefined()
+    const text = reasonsOf(result)
+    expect(text).toContain('첫 도착지 주변 주차 정보 없음')
+    expect(text).toContain('주차 후 대중교통 추천')
+  })
+
+  it('압박점수는 경로 순위(점수)를 바꾸지 않는다', async () => {
+    const calm = await planRoutes(
+      providers,
+      input({ parkingOccupancyAt: occ(0.1, 0.1) }),
+    )
+    const crowded = await planRoutes(
+      providers,
+      input({ parkingOccupancyAt: occ(0.1, 0.95) }),
+    )
+    expect(parkTransit(crowded)?.score).toBe(parkTransit(calm)?.score)
+    expect(crowded.routes.map((r) => r.scenario)).toEqual(
+      calm.routes.map((r) => r.scenario),
+    )
   })
 })

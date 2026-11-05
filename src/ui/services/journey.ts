@@ -101,6 +101,8 @@ export function createJourneyService(
     location: LatLng,
     arriveAt: Date,
   ) => Promise<number | null>,
+  /** 위치 인근 실시간 주차 포화율(0~1). 없으면 park-transit 는 기존 동작. AGENTS.md 8-2 */
+  parkingOccupancyAt?: (location: LatLng) => Promise<{ ratio: number } | null>,
 ) {
   return {
     async order(draft: JourneyDraft) {
@@ -168,6 +170,7 @@ export function createJourneyService(
         departAt: departureIso(draft),
         preference: draft.preference,
         congestionLevelAt,
+        parkingOccupancyAt,
         waypoints: order.map((id, index) => {
           const w = draft.waypoints.find((item) => item.id === id)!
           const waypoint = {

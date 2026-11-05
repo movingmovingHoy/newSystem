@@ -43,6 +43,12 @@ export type Leg = {
   transitDetail?: TransitStep[]
   /** 지도에 그릴 경로 좌표(폴리라인). 표시용, 선택적. 자차는 실제 도로 좌표. */
   path?: LatLng[]
+  /**
+   * 자차 구간 중 정체로 보는 도로의 소요시간 합(초). 선택적.
+   * 카카오 도로별 traffic_state(정체/지체/서행)에 반영 비율을 곱해 합산한다.
+   * 없으면 정체 정보 없음(0으로 취급). 피로도의 "운전 정체시간" 입력으로 쓴다.
+   */
+  congestedDriveSec?: number
 }
 
 export type Scenario = 'car-direct' | 'mixed' | 'transit-only' | 'park-transit'
