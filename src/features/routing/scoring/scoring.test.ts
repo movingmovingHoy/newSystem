@@ -81,12 +81,12 @@ describe('scoreRoute', () => {
   })
 
   it('여유/보통 단계(0,1)는 혼잡 감점이 0이다', () => {
-    expect(scoreRoute({ ...base, congestionLevel: 0 }).breakdown.congestion).toBe(
-      0,
-    )
-    expect(scoreRoute({ ...base, congestionLevel: 1 }).breakdown.congestion).toBe(
-      0,
-    )
+    expect(
+      scoreRoute({ ...base, congestionLevel: 0 }).breakdown.congestion,
+    ).toBe(0)
+    expect(
+      scoreRoute({ ...base, congestionLevel: 1 }).breakdown.congestion,
+    ).toBe(0)
   })
 
   it('혼잡 감점이 있으면 근거 문구에 혼잡 관련 설명이 들어간다', () => {
@@ -98,4 +98,17 @@ describe('scoreRoute', () => {
     expect(r.breakdown.congestion).toBeGreaterThan(0)
     expect(r.reasons.some((x) => x.includes('혼잡'))).toBe(true)
   })
+})
+
+it('큰 점수도 100 이내로 환산하며 순위와 항목 합을 유지한다', () => {
+  const a = scoreRoute({ ...base, durationSec: 200 * 60 })
+  const b = scoreRoute({ ...base, durationSec: 400 * 60 })
+  expect(a.score).toBeLessThan(b.score)
+  expect(b.score).toBeLessThanOrEqual(100)
+  expect(Object.values(b.breakdown).reduce((a, b) => a + b, 0)).toBeCloseTo(
+    b.score,
+  )
+  expect(
+    scoreRoute({ ...base, durationSec: 0, cost: 0, fatigue: 0 }).score,
+  ).toBe(0)
 })

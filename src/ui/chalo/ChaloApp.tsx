@@ -117,16 +117,13 @@ export function ChaloApp({ service }: { service?: JourneyService }) {
             <div className="dirty-notice">
               <Icon name="info" size={15} />
               장소를 선택한 뒤 ‘더 나은 경로 찾기’를 눌러 조회하세요.
-              자동차·대중교통은 실제 API를 사용하며, 접근 도보는 추정값·주차장은
-              샘플입니다.
+              자동차·대중교통과 공영주차장은 실제 데이터를 사용하며, 접근 도보는
+              추정값입니다.
             </div>
           )}
           {flow.error && (
             <div className="error-box" role="alert">
               {flow.error}
-              <button className="native-button" onClick={flow.edit}>
-                입력으로 돌아가기
-              </button>
             </div>
           )}
           <div className="map-container">
@@ -174,35 +171,6 @@ export function ChaloApp({ service }: { service?: JourneyService }) {
               onSelect={(route) => setScenario(route.scenario)}
             />
           )}
-          {flow.stage === 'results' && flow.orders.length > 1 && (
-            <div className="order-control">
-              <label htmlFor="order-select">방문 순서 변경</label>
-              <select
-                id="order-select"
-                disabled={flow.busy}
-                value={flow.orders.findIndex(
-                  (o) => o.order.join() === flow.order.join(),
-                )}
-                onChange={(e) => void flow.changeOrder(Number(e.target.value))}
-              >
-                {flow.orders.map((o, index) => (
-                  <option value={index} key={o.order.join()}>
-                    {index + 1}안 ·{' '}
-                    {o.order
-                      .map(
-                        (id) =>
-                          placeById(
-                            flow.draft.waypoints.find((w) => w.id === id)!
-                              .placeId,
-                          ).name,
-                      )
-                      .join(' → ')}
-                  </option>
-                ))}
-              </select>
-              <small>순서를 바꾸면 주차장을 처음부터 다시 선택합니다.</small>
-            </div>
-          )}
         </section>
       </main>
       <dialog
@@ -228,8 +196,9 @@ export function ChaloApp({ service }: { service?: JourneyService }) {
           <strong>데이터 연결 상태</strong>
           <p>
             자동차는 카카오, 대중교통은 ODsay, 혼잡도는 서울시 API로 조회합니다.
-            접근 도보는 추정값이고 주차장은 샘플이며 잔여 주차면은 표시하지
-            않습니다. 택시는 현재 MVP에 포함되지 않습니다.
+            접근 도보는 추정값이고 주차장은 서울시·교통안전공단 공영주차장
+            데이터이며 잔여 주차면은 표시하지 않습니다. 택시는 현재 MVP에
+            포함되지 않습니다.
           </p>
         </div>
       </dialog>

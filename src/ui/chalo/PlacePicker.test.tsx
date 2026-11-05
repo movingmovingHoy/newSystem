@@ -40,14 +40,14 @@ describe('장소 자동완성', () => {
     )
     fireEvent.click(screen.getByRole('combobox'))
     const input = screen.getByRole('textbox')
+    // 1글자: 디바운스 최소 길이 미만이라 API를 부르지 않는다
     fireEvent.change(input, { target: { value: '광' } })
     await tick()
     expect(fetch).not.toHaveBeenCalled()
+    // 2글자: 디바운스가 끝나기 전에는 아직 호출 전 (출발지는 121곳을 섞지 않는다)
     fireEvent.change(input, { target: { value: '광ㅎ' } })
-    expect(
-      screen.getAllByRole('option', { name: /광화문/ }).length,
-    ).toBeGreaterThan(0)
     expect(fetch).not.toHaveBeenCalled()
+    // 디바운스 경과 후 카카오 검색 호출
     fireEvent.change(input, { target: { value: '광화문' } })
     await tick()
     expect(fetch).toHaveBeenCalledTimes(1)
@@ -58,17 +58,83 @@ describe('장소 자동완성', () => {
       lng: 126.977,
     })
   })
-  it('도착지는 121곳을 표시하고 API를 호출하지 않는다', () => {
-    const fetch = vi.fn()
+  it('도착지도 실제 장소를 검색하며 서울 밖 결과는 제외한다', async () => {
+    vi.useFakeTimers()
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        documents: [
+          {
+            place_name: '성수 카페',
+            road_address_name: '서울 성동구 연무장길 1',
+            x: '127.055',
+            y: '37.544',
+          },
+          {
+            place_name: '부산 카페',
+            address_name: '부산 해운대구',
+            x: '129.16',
+            y: '35.16',
+          },
+        ],
+      }),
+    })
     vi.stubGlobal('fetch', fetch)
+    const pick = vi.fn()
+    render(<PlacePicker value="gangnam" label="도착지" onChange={pick} />)
+    fireEvent.click(screen.getByRole('combobox'))
+    expect(screen.queryAllByRole('option')).toHaveLength(0)
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: '성수 카페' },
+    })
+    expect(screen.queryByText('장소 검색 중')).not.toBeInTheDocument()
+    await tick()
+    expect(
+      new URL(fetch.mock.calls[0][0], 'http://localhost').searchParams.get(
+        'query',
+      ),
+    ).toBe('서울 성수 카페')
+    expect(
+      screen.queryByRole('option', { name: /부산 카페/ }),
+    ).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('option', { name: /성수 카페/ }))
+    expect(placeById(pick.mock.calls[0][0]).location).toEqual({
+      lat: 37.544,
+      lng: 127.055,
+    })
+  })
+  it('서울 밖 장소만 반환되면 서울 내 결과가 없다고 안내한다', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            documents: [
+              {
+                place_name: '부산역',
+                address_name: '부산 동구',
+                x: '129',
+                y: '35',
+              },
+            ],
+          }),
+        }),
+    )
     render(<PlacePicker value="gangnam" label="도착지" onChange={() => {}} />)
     fireEvent.click(screen.getByRole('combobox'))
-    expect(screen.getAllByRole('option')).toHaveLength(121)
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: '광ㅎ' } })
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: '부산역' },
+    })
+    await tick()
+    expect(screen.queryAllByRole('option')).toHaveLength(0)
     expect(
-      screen.getAllByRole('option', { name: /광화문/ }).length,
-    ).toBeGreaterThan(0)
-    expect(fetch).not.toHaveBeenCalled()
+      screen.getByText(
+        '서울 내 검색 결과가 없습니다. 장소명이나 주소를 더 입력해주세요.',
+      ),
+    ).toBeInTheDocument()
   })
   it('늦게 도착한 이전 검색 응답이 최신 결과를 덮어쓰지 않는다', async () => {
     vi.useFakeTimers()

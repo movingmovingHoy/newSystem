@@ -40,3 +40,14 @@ describe('computeFatigue', () => {
     expect(far).toBeGreaterThan(near)
   })
 })
+
+it('피로도는 최대 100이다', () => {
+  expect(
+    computeFatigue({
+      walkDistanceM: 20000,
+      transfers: 20,
+      standingMin: 0,
+      congestedDriveMin: 0,
+    }),
+  ).toBe(100)
+})

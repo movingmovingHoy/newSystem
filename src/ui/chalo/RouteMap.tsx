@@ -256,8 +256,8 @@ export function RouteMap({
           </div>
         )}
         <p className="geometry-status">
-          접근 도보는 추정값·주차장은 샘플입니다. 점선은 실제 도로가 아닌 지점
-          간 연결입니다.
+          접근 도보는 추정값이며 주차 잔여석은 제공하지 않습니다. 점선은 실제
+          도로가 아닌 지점 간 연결입니다.
         </p>
       </div>
     </div>

@@ -7,7 +7,7 @@ import {
   CongestionService,
   SeoulCongestionProvider,
 } from '@features/congestion'
-import { SampleParkingProvider } from '@features/parking/providers'
+import { HttpParkingProvider } from '@features/parking/providers/http'
 import { createInitialDraft, createJourneyService } from './journey'
 import { findAreas } from './catalog'
 
@@ -28,7 +28,6 @@ export function createLiveDraft() {
 }
 export function createLiveJourneyService() {
   const congestion = new CongestionService(new SeoulCongestionProvider())
-  const areas = findAreas('')
   return createJourneyService(
     {
       car: new KakaoCarProvider(),
@@ -36,15 +35,9 @@ export function createLiveJourneyService() {
       // 유료 도보 API 미연결 상태를 화면에 명시한다. 자동차·대중교통 실패는 mock으로 대체하지 않는다.
       walk: new MockWalkProvider(),
     },
-    new SampleParkingProvider(),
+    new HttpParkingProvider(),
     async (location, arriveAt) => {
-      const area = areas.find(
-        (p) =>
-          p.location.lat === location.lat && p.location.lng === location.lng,
-      )
-      const result = area?.areaCode
-        ? await congestion.getCongestionByArea(area.areaCode, arriveAt)
-        : await congestion.getCongestion(location, arriveAt)
+      const result = await congestion.getCongestion(location, arriveAt)
       return result.level
     },
   )

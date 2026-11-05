@@ -79,6 +79,12 @@ export function useJourney(service?: JourneyService) {
   }
   const startOrder = async (chosenOrder: string[], current: () => boolean) => {
     setOrder(chosenOrder)
+    setDraft((previous) => ({
+      ...previous,
+      waypoints: chosenOrder.map((id) =>
+        previous.waypoints.find((w) => w.id === id)!,
+      ),
+    }))
     setSelections({})
     setResult(null)
     setCandidates([])
@@ -149,17 +155,28 @@ export function useJourney(service?: JourneyService) {
     setStage('input')
     setSelections({})
     setResult(null)
+    setCandidates([])
+    setHighlighted(null)
+    setOrders([])
+    setOrder([])
+    setParkingIndex(0)
   }
-  const update = (patch: Partial<JourneyDraft>) =>
+  const update = (patch: Partial<JourneyDraft>) => {
+    edit()
     setDraft((previous) => ({ ...previous, ...patch }))
-  const updateWaypoint = (id: string, patch: Partial<WaypointDraft>) =>
+  }
+  const updateWaypoint = (id: string, patch: Partial<WaypointDraft>) => {
+    edit()
     setDraft((previous) => ({
       ...previous,
       waypoints: previous.waypoints.map((w) =>
         w.id === id ? { ...w, ...patch } : w,
       ),
     }))
-  const addWaypoint = () =>
+  }
+  const addWaypoint = () => {
+    if (draft.waypoints.length >= MAX_WAYPOINTS) return
+    edit()
     setDraft((previous) =>
       previous.waypoints.length >= MAX_WAYPOINTS
         ? previous
@@ -177,7 +194,10 @@ export function useJourney(service?: JourneyService) {
             ],
           },
     )
-  const removeWaypoint = (id: string) =>
+  }
+  const removeWaypoint = (id: string) => {
+    if (draft.waypoints.length <= 1) return
+    edit()
     setDraft((previous) => {
       // 도착지는 최소 1개 유지. 마지막 하나는 삭제하지 않는다.
       if (previous.waypoints.length <= 1) return previous
@@ -199,6 +219,27 @@ export function useJourney(service?: JourneyService) {
           })),
       }
     })
+  }
+  const moveWaypoint = (id: string, targetId: string) => {
+    if (
+      id === targetId ||
+      !draft.waypoints.some((w) => w.id === id) ||
+      !draft.waypoints.some((w) => w.id === targetId)
+    )
+      return
+    edit()
+    setDraft((previous) => {
+      const waypoints = [...previous.waypoints]
+      const from = waypoints.findIndex((w) => w.id === id)
+      const to = waypoints.findIndex((w) => w.id === targetId)
+      const [moved] = waypoints.splice(from, 1)
+      waypoints.splice(to, 0, moved)
+      return {
+        ...previous,
+        waypoints: waypoints.map((w, fixedIndex) => ({ ...w, fixedIndex })),
+      }
+    })
+  }
   return {
     live: !service,
     draft,
@@ -220,6 +261,7 @@ export function useJourney(service?: JourneyService) {
     updateWaypoint,
     addWaypoint,
     removeWaypoint,
+    moveWaypoint,
     setHighlighted,
     changeOrder: (index: number) =>
       guard((current) => startOrder(orders[index].order, current)),

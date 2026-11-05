@@ -73,7 +73,9 @@ export function RouteResults({
         <span>차로의 추천</span>
         {scenarioNames[recommended.scenario]}로 이동하는 게 좋아요.
         <small>
-          {live ? 'API 조회 결과 · 도보 추정·주차 샘플' : '테스트 데이터 기준'}{' '}
+          {live
+            ? 'API 조회 결과 · 공영주차장 · 도보 추정'
+            : '테스트 데이터 기준'}{' '}
           · {minutes(recommended.totals.durationSec)} ·{' '}
           {won(recommended.totals.cost)}
           {recommended.totals.parkingCostPartial ? ' + 미확인 주차비' : ''}
@@ -116,7 +118,9 @@ export function RouteResults({
                 <span>
                   {route.scenario === 'transit-only'
                     ? '출발지부터 마지막 목적지까지'
-                    : '선택한 주차장에서 왕복 접근'}
+                    : route.scenario === 'park-transit'
+                      ? '첫 도착지에 주차 후 대중교통'
+                      : '선택한 주차장에서 왕복 접근'}
                 </span>
               </p>
               <div className="card-metrics">
@@ -138,6 +142,12 @@ export function RouteResults({
           </div>
         ))}
       </div>
+      {selected.scenario === 'park-transit' && (
+        <p className="options-note">
+          이 방식은 첫 도착지 좌표에 주차하는 것으로 가정합니다. 선택한 실제
+          주차장과 주차요금은 아직 반영하지 않습니다.
+        </p>
+      )}
       <section className={`detail-panel ${isTransit ? 'transit-panel' : ''}`}>
         <div className="detail-title">
           <div>
@@ -288,12 +298,12 @@ export function RouteResults({
                   : '체류시간을 기준으로 계산한 예상 주차비를 포함합니다.'}
             </p>
             <div>
-              <span>피로도</span>
-              <b>{selected.totals.fatigue.toFixed(1)}</b>
+              <span>피로도 · 낮을수록 편함</span>
+              <b>{selected.totals.fatigue.toFixed(1)} / 100</b>
             </div>
             <div>
               <span>종합점수 · 낮을수록 좋음</span>
-              <b>{selected.score.toFixed(1)}</b>
+              <b>{selected.score.toFixed(1)} / 100</b>
             </div>
             <ul className="reason-list">
               {selected.reasons.map((reason, i) => (

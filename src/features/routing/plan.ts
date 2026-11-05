@@ -9,6 +9,7 @@ import {
 } from './optimizer/optimizer'
 import { buildTransitOnlyRoute } from './strategies/transit-only'
 import { buildCarRoutes, type WaypointParking } from './strategies/car-mixed'
+import { buildParkTransitRoute } from './strategies/park-transit'
 
 /**
  * 경로 플래너 (A 담당 오케스트레이터). AGENTS.md 7장 전체 흐름.
@@ -154,6 +155,26 @@ export async function planRoutes(
   const routes: Route[] = carRoutes.identical
     ? [carRoutes.carDirect, transitOnly]
     : [carRoutes.carDirect, carRoutes.mixed, transitOnly]
+
+  // 주차 후 대중교통 전환(park-transit): 출발 1 + 도착 정확히 2개일 때만 (AGENTS.md 8-1).
+  // 확정된 방문 순서를 그대로 따른다: 첫 도착지에 주차하고, 둘째 도착지는
+  // 대중교통으로 간다. 방문 순서를 바꾸면 이 시나리오도 그 순서로 다시 계산된다.
+  if (orderedPlan.length === 2) {
+    const toWaypoint = (p: (typeof orderedPlan)[number]): Waypoint => ({
+      id: p.waypoint.id,
+      location: p.waypoint.location,
+      dwellMin: p.waypoint.dwellMin,
+    })
+    const parkTransit = await buildParkTransitRoute(cachedProviders, {
+      origin,
+      parkAt: toWaypoint(orderedPlan[0]),
+      destination: toWaypoint(orderedPlan[1]),
+      departAt,
+      preference,
+      congestionLevelAt: input.congestionLevelAt,
+    })
+    routes.push(parkTransit)
+  }
 
   routes.sort((a, b) => a.score - b.score)
 

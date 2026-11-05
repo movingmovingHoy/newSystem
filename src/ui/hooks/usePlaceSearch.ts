@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { searchPlaces } from '@features/routing/providers'
-import { findAreas, registerPlace, type SearchPlace } from '../services/catalog'
+import { registerPlace, type SearchPlace } from '../services/catalog'
 export function usePlaceSearch(
   query: string,
-  kind: 'origin' | 'area',
+  kind: 'origin' | 'destination',
   open: boolean,
 ) {
   const [remote, setRemote] = useState<SearchPlace[]>([])
@@ -14,18 +14,31 @@ export function usePlaceSearch(
     setRemote([])
     setError('')
     setLoading(false)
-    if (!open || kind !== 'origin' || query.trim().length < 2) return
+    if (!open || query.trim().length < 2) return
     setLoading(true)
     const timer = setTimeout(() => {
-      void searchPlaces(query.trim())
+      const q = query.trim()
+      const keyword =
+        kind === 'destination' && !q.startsWith('서울') ? `서울 ${q}` : q
+      void searchPlaces(keyword)
         .then((results) => {
-          if (active) setRemote(results.map(registerPlace))
+          if (active)
+            setRemote(
+              results
+                .filter(
+                  (p) =>
+                    p.name.trim() &&
+                    Number.isFinite(p.location.lat) &&
+                    Number.isFinite(p.location.lng) &&
+                    (kind === 'origin' ||
+                      /^서울(?:특별시)?(?:\s|$)/.test(p.address)),
+                )
+                .map(registerPlace),
+            )
         })
         .catch(() => {
           if (active)
-            setError(
-              '카카오 검색에 실패했습니다. API 키와 연결 상태를 확인해주세요. 서울 121곳 추천은 선택할 수 있습니다.',
-            )
+            setError('카카오 검색에 실패했습니다. 잠시 후 다시 시도해주세요.')
         })
         .finally(() => {
           if (active) setLoading(false)
@@ -36,11 +49,5 @@ export function usePlaceSearch(
       clearTimeout(timer)
     }
   }, [query, kind, open])
-  const local =
-    kind === 'area' || query.trim().length >= 2 ? findAreas(query) : []
-  return {
-    results: kind === 'area' ? local : [...remote, ...local],
-    loading,
-    error,
-  }
+  return { results: remote, loading, error }
 }

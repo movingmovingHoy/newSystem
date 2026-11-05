@@ -2,8 +2,11 @@ import { MAX_WAYPOINTS, type Preference } from '@shared/config'
 import type { JourneyState } from '../hooks/useJourney'
 import { PlacePicker } from './PlacePicker'
 import { Icon } from './Icons'
+import { useWaypointDrag } from '../hooks/useWaypointDrag'
+import { placeById } from '../services/catalog'
 export function Sidebar({ flow }: { flow: JourneyState }) {
   const { draft } = flow
+  const drag = useWaypointDrag(flow.moveWaypoint)
   return (
     <aside className="sidebar">
       <div className="sidebar-heading">
@@ -17,10 +20,7 @@ export function Sidebar({ flow }: { flow: JourneyState }) {
           void flow.start()
         }}
       >
-        <fieldset
-          disabled={flow.busy || flow.stage !== 'input'}
-          className="native-fieldset"
-        >
+        <fieldset className="native-fieldset">
           <div className="mode-tabs">
             <button type="button" data-state="active">
               <Icon name="car" />
@@ -45,13 +45,41 @@ export function Sidebar({ flow }: { flow: JourneyState }) {
                   value={draft.originId}
                   onChange={(originId) => flow.update({ originId })}
                   label="출발지 선택"
-                  disabled={flow.stage !== 'input' || flow.busy}
                 />
               </div>
             </div>
             {draft.waypoints.map((w, index) => (
-              <div className="field-block" key={w.id}>
-                <label>도착지 {index + 1}</label>
+              <div
+                className="field-block waypoint-card"
+                key={w.id}
+                data-waypoint-id={w.id}
+                data-dragging={drag.dragging === w.id || undefined}
+                data-drop-target={
+                  (drag.over === w.id && drag.dragging !== w.id) || undefined
+                }
+              >
+                <div className="waypoint-heading">
+                  <label>도착지 {index + 1}</label>
+                  <button
+                    type="button"
+                    className="waypoint-grip native-button"
+                    aria-label={`도착지 ${index + 1} 순서 이동`}
+                    aria-describedby="waypoint-drag-help"
+                    disabled={draft.waypoints.length < 2}
+                    {...drag.handle(w.id)}
+                    onKeyDown={(e) => {
+                      drag.handle(w.id).onKeyDown(e)
+                      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
+                      e.preventDefault()
+                      const target =
+                        draft.waypoints[index + (e.key === 'ArrowUp' ? -1 : 1)]
+                      if (target) flow.moveWaypoint(w.id, target.id)
+                    }}
+                  >
+                    <span aria-hidden="true">⠿</span>
+                    <span>순서 이동</span>
+                  </button>
+                </div>
                 <div className="location-row">
                   <span className="destination-number">{index + 1}</span>
                   <PlacePicker
@@ -60,7 +88,6 @@ export function Sidebar({ flow }: { flow: JourneyState }) {
                       flow.updateWaypoint(w.id, { placeId })
                     }
                     label={`도착지 ${index + 1} 장소`}
-                    disabled={flow.stage !== 'input' || flow.busy}
                   />
                   <button
                     className="icon-button"
@@ -92,35 +119,6 @@ export function Sidebar({ flow }: { flow: JourneyState }) {
                       }}
                     />
                   </label>
-                  <label>
-                    방문 순번
-                    <select
-                      aria-label={`도착지 ${index + 1} 고정 순번`}
-                      value={w.fixedIndex ?? ''}
-                      onChange={(e) =>
-                        flow.updateWaypoint(w.id, {
-                          fixedIndex:
-                            e.target.value === ''
-                              ? undefined
-                              : Number(e.target.value),
-                        })
-                      }
-                    >
-                      <option value="">자동 추천</option>
-                      {draft.waypoints.map((_, slot) => (
-                        <option
-                          value={slot}
-                          key={slot}
-                          disabled={draft.waypoints.some(
-                            (other) =>
-                              other.id !== w.id && other.fixedIndex === slot,
-                          )}
-                        >
-                          {slot + 1}번째 고정
-                        </option>
-                      ))}
-                    </select>
-                  </label>
                 </div>
               </div>
             ))}
@@ -134,9 +132,34 @@ export function Sidebar({ flow }: { flow: JourneyState }) {
               <Icon name="plus" size={16} />
               도착지 추가<span>최대 {MAX_WAYPOINTS}곳</span>
             </button>
-            <p className="field-hint">
-              방문 순서를 추천해요. 원하는 순번은 고정하세요.
+            <p className="field-hint" id="waypoint-drag-help">
+              ‘순서 이동’을 꾹 누른 채 위아래로 끌어주세요. 키보드는 ↑ ↓로
+              이동해요.
+              {draft.waypoints.some((w) => w.fixedIndex !== undefined)
+                ? ' 지정한 순서대로 방문해요.'
+                : ' 검색 시 빠른 방문 순서를 추천해요.'}
             </p>
+            {draft.waypoints.some((w) => w.fixedIndex !== undefined) && (
+              <button
+                type="button"
+                className="native-button order-auto"
+                onClick={() =>
+                  flow.update({
+                    waypoints: draft.waypoints.map((w) => ({
+                      ...w,
+                      fixedIndex: undefined,
+                    })),
+                  })
+                }
+              >
+                자동 순서 추천으로 되돌리기
+              </button>
+            )}
+            <span className="sr-only" role="status">
+              {drag.dragging
+                ? '이동할 위치로 끌어 놓으세요.'
+                : `방문 순서: ${draft.waypoints.map((w, i) => `${i + 1}번 ${placeById(w.placeId).name}`).join(', ')}`}
+            </span>
           </div>
           <div className="stay-box">
             <div className="check-label">
@@ -174,12 +197,13 @@ export function Sidebar({ flow }: { flow: JourneyState }) {
             </label>
             <p id="data-source">
               {flow.live
-                ? '카카오·ODsay 실제 조회 / 도보 추정·주차 샘플'
+                ? '카카오·ODsay·공영주차장 조회 / 도보 추정'
                 : '테스트 데이터'}
             </p>
           </div>
           <button
             type="submit"
+            disabled={flow.busy}
             className="search-button native-button"
             aria-label={
               draft.waypoints.length > 1 ? '주차장 찾기' : '경로 비교하기'
@@ -190,15 +214,6 @@ export function Sidebar({ flow }: { flow: JourneyState }) {
             <Icon name="arrow" />
           </button>
         </fieldset>
-        {flow.stage !== 'input' && (
-          <button
-            type="button"
-            className="edit-button native-button"
-            onClick={flow.edit}
-          >
-            입력 수정
-          </button>
-        )}
       </form>
       <div className="sidebar-footer">
         <span className="tiny-logo">

@@ -7,13 +7,13 @@ export function PlacePicker({
   onChange,
   label,
   disabled,
-  kind = 'area',
+  kind = 'destination',
 }: {
   value: string
   onChange: (id: string) => void
   label: string
   disabled?: boolean
-  kind?: 'origin' | 'area'
+  kind?: 'origin' | 'destination'
 }) {
   const [open, setOpen] = useState(false),
     [query, setQuery] = useState('')
@@ -71,7 +71,7 @@ export function PlacePicker({
               placeholder={
                 kind === 'origin'
                   ? '장소명 두 글자 이상 입력'
-                  : '서울 121곳 검색 · 광ㅎ, ㄱㅎㅁ'
+                  : '서울의 식당·카페·건물 검색'
               }
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -102,8 +102,8 @@ export function PlacePicker({
           </div>
           <p className="picker-caption">
             {kind === 'origin'
-              ? '카카오 장소검색 · 서울 121곳 추천'
-              : '서울시 주요 121곳'}
+              ? '카카오 장소검색 · 전국'
+              : '카카오 장소검색 · 서울'}
           </p>
           {error && <p role="alert">{error}</p>}
           <div role="listbox" id={`${label}-list`} aria-label={`${label} 목록`}>
@@ -120,9 +120,7 @@ export function PlacePicker({
                 <Icon name="pin" size={16} />
                 <span>
                   {p.name}
-                  <small>
-                    {p.areaCode ? `서울 121곳 · ${p.address}` : p.address}
-                  </small>
+                  <small>{p.address}</small>
                 </span>
                 {value === p.id && <Icon name="check" size={15} />}
               </button>
@@ -130,9 +128,11 @@ export function PlacePicker({
           </div>
           {!loading && !error && !results.length && (
             <p className="picker-caption">
-              {kind === 'origin' && query.trim().length < 2
+              {query.trim().length < 2
                 ? '두 글자 이상 입력해주세요.'
-                : '검색 결과가 없습니다.'}
+                : kind === 'destination'
+                  ? '서울 내 검색 결과가 없습니다. 장소명이나 주소를 더 입력해주세요.'
+                  : '검색 결과가 없습니다.'}
             </p>
           )}
         </div>

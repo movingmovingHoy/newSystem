@@ -26,6 +26,7 @@ export const scenarioNames = {
   'car-direct': '자차 + 도보',
   mixed: '자차 + 대중교통 혼합',
   'transit-only': '대중교통',
+  'park-transit': '자차 주차 후 대중교통',
 }
 
 /** 대중교통 구간 상세를 사람이 읽는 한 줄로 (예: "2호선 강남 → 역삼 · 6정거장") */
@@ -80,6 +81,7 @@ export function displayTimeline(
   let cursor = Date.parse(departureIso(draft))
   const visits: VisitDisplay[] = []
   const isTransitOnly = route.scenario === 'transit-only'
+  const isParkTransit = route.scenario === 'park-transit'
   let index = 0
   // 방문지 사이 구간의 대중교통 상세를 모은다. transit-only 는 leg 자체가 구간,
   // 자차/혼합은 access-out leg 이 "주차장→도착지" 접근 구간이다.
@@ -89,7 +91,11 @@ export function displayTimeline(
   for (const leg of route.legs) {
     cursor += leg.durationSec * 1000
     // 이번 leg 이 어느 방문지에 "도착"시키는 구간이면 방문지를 확정한다.
-    const arrivesAtVisit = isTransitOnly || leg.role === 'access-out'
+    // park-transit 는 자차 drive leg 이 주차지(A)에 도착시키는 구간이다.
+    const arrivesAtVisit =
+      isTransitOnly ||
+      leg.role === 'access-out' ||
+      (isParkTransit && leg.role === 'drive')
     if (arrivesAtVisit) {
       pendingSteps = leg.transitDetail ?? []
       pendingWalkM = leg.walkDistanceM
@@ -118,9 +124,10 @@ export function displayTimeline(
     }
   }
 
-  // transit-only 의 마지막 leg(=종점 도착 구간)의 상세를 endpointSteps 로 남긴다.
+  // 마지막 leg(=종점 도착 구간)의 대중교통 상세를 endpointSteps 로 남긴다.
+  // transit-only 는 마지막 대중교통 구간, park-transit 는 A→B 대중교통 구간.
   const endpointSteps =
-    isTransitOnly && route.legs.length
+    (isTransitOnly || isParkTransit) && route.legs.length
       ? (route.legs[route.legs.length - 1].transitDetail ?? [])
       : []
 

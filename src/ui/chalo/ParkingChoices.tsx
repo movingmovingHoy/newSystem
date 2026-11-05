@@ -52,13 +52,15 @@ export function ParkingChoices({ flow }: { flow: JourneyState }) {
       })}
       {!flow.candidates.length && (
         <p className="options-empty">
-          반경 1km 안에 샘플 주차장이 없습니다. 이 도착지는 주차장 없이 진행할
-          수 있어요.
+          반경 1km 안에 {flow.live ? '조회된 공영' : '샘플'} 주차장이 없습니다.
+          이 도착지는 주차장 없이 진행할 수 있어요.
         </p>
       )}
       <p className="options-note">
-        선택한 주차장은 자차와 혼합 경로에 함께 반영돼요. 요금 정보가 없어도
-        선택할 수 있습니다.
+        선택한 주차장은 자차 + 도보·차량 유지형 혼합 경로에 반영됩니다. 요금
+        정보가 없어도 선택할 수 있습니다.
+        {flow.live &&
+          ' 서울시·교통안전공단 공영주차장 기준이며, 운영시간·할인·휴일 요금과 잔여석은 반영하지 않습니다. 방문 전 운영 여부를 확인해주세요.'}
       </p>
       {flow.candidates.length ? (
         <button

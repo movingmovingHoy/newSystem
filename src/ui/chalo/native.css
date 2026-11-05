@@ -336,3 +336,40 @@
   font-size: var(--chalo-size-xs);
   color: var(--chalo-muted);
 }
+
+.waypoint-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.waypoint-grip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  color: var(--chalo-color-7);
+  padding: var(--space-2);
+}
+.waypoint-grip:active {
+  cursor: grabbing;
+}
+.waypoint-card[data-dragging] {
+  background: var(--chalo-color-75);
+}
+.waypoint-card[data-drop-target] {
+  outline: 2px dashed var(--chalo-color-5);
+}
+.order-auto {
+  color: var(--chalo-color-5);
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

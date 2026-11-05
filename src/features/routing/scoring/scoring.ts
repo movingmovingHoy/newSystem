@@ -9,7 +9,8 @@ import {
 
 /**
  * 종합점수 계산. AGENTS.md 12장.
- * 종합점수(낮을수록 좋음) = 시간점수 + 비용점수 + 피로도점수 + 혼잡 감점
+ * 원점수 = 시간점수 + 비용점수 + 피로도점수 + 혼잡 감점
+ * 종합점수 = 100 × 원점수 / (100 + 원점수), 0~100 범위이며 낮을수록 좋다.
  * 앞의 세 항목에 성향 프리셋 가중치를 적용한다.
  * 혼잡 감점 = LEVEL_PENALTY[level] × SCENARIO_SENSITIVITY[scenario]
  *  - level=null 이면 감점 0, 화면에는 "혼잡: 정보 없음"
@@ -43,10 +44,7 @@ export type ScoreResult = {
   reasons: string[]
 }
 
-function congestionPenalty(
-  level: number | null,
-  scenario: Scenario,
-): number {
+function congestionPenalty(level: number | null, scenario: Scenario): number {
   if (level === null) return 0
   const base = LEVEL_PENALTY[level] ?? 0
   return base * SCENARIO_SENSITIVITY[scenario]
@@ -61,21 +59,22 @@ export function scoreRoute(input: ScoreInput): ScoreResult {
   const fatigueScore = input.fatigue * SCORE_SCALE.fatigueWeight * w.fatigue
   const congestion = congestionPenalty(input.congestionLevel, input.scenario)
 
+  // 100 * raw / (100 + raw): 상한 절단으로 생기는 동점을 피하고 순위를 유지한다.
+  // 항목별 점수에도 같은 비율을 적용해 분해 합계와 표시 점수를 일치시킨다.
+  const raw = timeScore + costScore + fatigueScore + congestion
+  const scale = 100 / (100 + raw)
   const breakdown: ScoreBreakdown = {
-    time: timeScore,
-    cost: costScore,
-    fatigue: fatigueScore,
-    congestion,
+    time: timeScore * scale,
+    cost: costScore * scale,
+    fatigue: fatigueScore * scale,
+    congestion: congestion * scale,
   }
-  const score = timeScore + costScore + fatigueScore + congestion
+  const score = Math.min(100, Math.max(0, raw * scale))
 
   return { score, breakdown, reasons: buildReasons(input, breakdown) }
 }
 
-function buildReasons(
-  input: ScoreInput,
-  breakdown: ScoreBreakdown,
-): string[] {
+function buildReasons(input: ScoreInput, breakdown: ScoreBreakdown): string[] {
   const reasons: string[] = []
 
   reasons.push(`이동시간 약 ${Math.round(input.durationSec / 60)}분`)

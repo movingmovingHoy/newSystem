@@ -45,7 +45,7 @@ export type Leg = {
   path?: LatLng[]
 }
 
-export type Scenario = 'car-direct' | 'mixed' | 'transit-only'
+export type Scenario = 'car-direct' | 'mixed' | 'transit-only' | 'park-transit'
 
 /**
  * 경로 합계. AGENTS.md 10장: 요금 정보 없는 주차장이 섞이면
