@@ -190,7 +190,9 @@ export function ChaloApp({ service }: { service?: JourneyService }) {
         <ol>
           <li>출발지와 도착지들을 선택하고 체류시간을 입력하세요.</li>
           <li>추천 방문 순서대로 도착지마다 주차장을 선택하세요.</li>
-          <li>자차·혼합·대중교통의 이동시간과 비용을 비교하세요.</li>
+          <li>
+            자차·주차 후 대중교통·대중교통의 이동시간과 비용을 비교하세요.
+          </li>
         </ol>
         <div className="guide-note">
           <strong>데이터 연결 상태</strong>

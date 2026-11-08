@@ -1,11 +1,7 @@
 export { sumTotals } from './totals'
 export { buildTransitOnlyRoute } from './transit-only'
 export type { TransitOnlyInput } from './transit-only'
-export { buildCarRoutes } from './car-mixed'
-export type {
-  CarRoutesInput,
-  CarRoutesResult,
-  WaypointParking,
-} from './car-mixed'
+export { buildCarRoute } from './car-direct'
+export type { CarRouteInput, WaypointParking } from './car-direct'
 export { buildParkTransitRoute } from './park-transit'
 export type { ParkTransitInput } from './park-transit'

@@ -32,16 +32,25 @@ import { findParkingCandidates } from '../finder'
 // 서버에서 .env 로드 후 실행. 서울시 DB와 별도 파일을 쓴다.
 // 구별로 제한하면 구마다 별도 DB를 사용해야 한다.
 const db = openParkingDatabase('data/ts-parking-jongno.sqlite')
-const provider = createTsParkingStore(db, process.env.TS_PARKING_SERVICE_KEY ?? '', {
-  sigunguCd: '11110',
-})
-const candidates = await findParkingCandidates(provider, {lat:37.5729,lng:126.9794}, 60)
+const provider = createTsParkingStore(
+  db,
+  process.env.TS_PARKING_SERVICE_KEY ?? '',
+  {
+    sigunguCd: '11110',
+  },
+)
+const candidates = await findParkingCandidates(
+  provider,
+  { lat: 37.5729, lng: 126.9794 },
+  60,
+)
 // 서버 종료 시 db.close(). 요청마다 닫지 않는다.
 ```
 
 서버 프로세스에서 provider 인스턴스를 공유한다. 검색 시 KST 날짜가 바뀌면 갱신하고,
-동시 요청은 합친다. 자동 스케줄러는 등록하지 않는다. 수집 실패 시 기존 DB는 유지하되
-오래된 데이터나 샘플로 조용히 대체하지 않고 오류를 반환한다.
+동시 요청은 합친다. 자동 스케줄러는 등록하지 않는다. 수집 실패 시 기존 DB는 유지한다.
+DB가 비어 있는 첫 수집이면 오류를 반환하고, 이미 데이터가 있으면 오류 대신 어제 데이터로
+먼저 응답하며 뒤에서 갱신한다 (COMBINED.md '갱신 방식'). 샘플로 대체하지 않는다.
 
 ## 데이터 처리 및 제한
 

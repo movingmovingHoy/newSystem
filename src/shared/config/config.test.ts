@@ -14,13 +14,21 @@ describe('shared/config 기본값 (AGENTS.md 5, 12장)', () => {
     expect(PARKING_RADIUS_M).toBe(1000)
   })
 
-  it('시나리오 민감도는 car-direct > mixed > transit-only', () => {
+  it('시나리오 민감도는 car-direct > park-transit > transit-only', () => {
     expect(SCENARIO_SENSITIVITY['car-direct']).toBeGreaterThan(
-      SCENARIO_SENSITIVITY.mixed,
+      SCENARIO_SENSITIVITY['park-transit'],
     )
-    expect(SCENARIO_SENSITIVITY.mixed).toBeGreaterThan(
+    expect(SCENARIO_SENSITIVITY['park-transit']).toBeGreaterThan(
       SCENARIO_SENSITIVITY['transit-only'],
     )
+  })
+
+  it('mixed 시나리오는 더 이상 없다', () => {
+    expect(Object.keys(SCENARIO_SENSITIVITY).sort()).toEqual([
+      'car-direct',
+      'park-transit',
+      'transit-only',
+    ])
   })
 
   it('여유/보통 단계는 감점 0', () => {

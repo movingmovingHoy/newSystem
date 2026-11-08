@@ -5,8 +5,6 @@ export const MAX_WAYPOINTS = 3
 export const MAX_PARKING_CANDIDATES = 3
 /** 경유지 반경 주차장 검색 반경 (m) */
 export const PARKING_RADIUS_M = 1000
-/** 이 거리 이하면 도보만 계산하고 대중교통 계산 생략 (AGENTS.md 8장) */
-export const WALK_ONLY_THRESHOLD_M = 400
 /** 경유지 기본 체류시간 (분) */
 export const DEFAULT_DWELL_MIN = 60
 /** 혼잡도 응답 캐시 TTL (분), 장소코드 키 */
@@ -33,3 +31,10 @@ export const WALK_DETOUR_FACTOR = 1.2
  * 기본요금을 다시 부과하지 않는다. 초과하면 새 승차(기본요금 부과).
  */
 export const TRANSFER_WINDOW_MIN = 30
+
+/**
+ * 주차 시설 DB 뒤 갱신이 실패한 뒤 다시 시도하기까지 쉬는 시간 (분).
+ * 날짜가 바뀐 뒤 어제 데이터로 먼저 응답하고 뒤에서 갱신하는데(AGENTS.md 10장),
+ * 실패가 이어질 때 클릭마다 외부 API를 다시 부르지 않게 한다.
+ */
+export const PARKING_REFRESH_RETRY_MIN = 10

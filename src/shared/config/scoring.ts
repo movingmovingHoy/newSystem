@@ -65,9 +65,8 @@ export const LEVEL_PENALTY: readonly number[] = [0, 0, 5, 10]
 /** 시나리오 민감도. 붐빌수록 자차 감점이 더 커진다. */
 export const SCENARIO_SENSITIVITY: Record<Scenario, number> = {
   'car-direct': 1.0,
-  mixed: 0.6,
   'transit-only': 0.3,
-  // 자차 1구간 + 대중교통 1구간 혼합. transit-only와 mixed 사이로 둔다.
+  // 자차 1구간 + 대중교통 1구간. car-direct와 transit-only 사이로 둔다.
   'park-transit': 0.5,
 }
 

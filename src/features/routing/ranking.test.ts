@@ -31,7 +31,7 @@ const carDirect = route('car-direct', 80, {
   cost: 5000, // 비쌈
   walkDistanceM: 100, // 도보 적음
 })
-const mixed = route('mixed', 60, {
+const parkTransit = route('park-transit', 60, {
   durationSec: 2400,
   cost: 2000,
   walkDistanceM: 600,
@@ -41,13 +41,13 @@ const transit = route('transit-only', 70, {
   cost: 1400, // 가장 쌈
   walkDistanceM: 900, // 도보 많음
 })
-const all = [carDirect, mixed, transit]
+const all = [carDirect, parkTransit, transit]
 
 describe('rankRoutes', () => {
   it('recommended: score 오름차순 (낮을수록 좋음)', () => {
     const r = rankRoutes(all, 'recommended')
     expect(r.map((x) => x.scenario)).toEqual([
-      'mixed',
+      'park-transit',
       'transit-only',
       'car-direct',
     ])
@@ -79,8 +79,8 @@ describe('rankRoutes', () => {
 
   it('동점이면 추천 점수로 2차 정렬한다', () => {
     const a = route('car-direct', 90, { durationSec: 1000 })
-    const b = route('mixed', 50, { durationSec: 1000 }) // 같은 시간, 더 좋은 점수
+    const b = route('park-transit', 50, { durationSec: 1000 }) // 같은 시간, 더 좋은 점수
     const r = rankRoutes([a, b], 'fastest')
-    expect(r[0].scenario).toBe('mixed')
+    expect(r[0].scenario).toBe('park-transit')
   })
 })

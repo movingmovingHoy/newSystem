@@ -52,6 +52,20 @@ export function evaluateParkingPressure(
 }
 
 /**
+ * "주차 후 대중교통"을 추천해도 되는가.
+ * 목적지가 기준(PARKING_PRESSURE_THRESHOLD) 이상이고, 첫 도착지(차를 세울 곳) 주변이
+ * 이미 포화(PARKING_FULL_RATIO 이상)가 아니어야 한다. 첫 도착지 정보가 없으면 목적지만 본다.
+ * 근거 문구와 추천 경로(1위) 결정이 같은 기준을 쓰도록 한 곳에서 판단한다.
+ */
+export function parkingRecommended(
+  dest: ParkingPressureResult,
+  first: { ratio: number } | null,
+): boolean {
+  const firstFull = first !== null && first.ratio >= PARKING_FULL_RATIO
+  return dest.recommended && !firstFull
+}
+
+/**
  * 추천 근거 문구. first 는 첫 도착지(차를 세울 곳) 인근 포화율이고, 정보가 없으면 null.
  * 첫 도착지 인근이 이미 포화(PARKING_FULL_RATIO 이상)면 추천하지 않는다고 알린다.
  */
@@ -62,7 +76,6 @@ export function parkingPressureReasons(
   const pct = Math.round(dest.occupancyRatio * 100)
   const score = Math.round(dest.score)
   const firstPct = first ? Math.round(first.ratio * 100) : 0
-  const firstFull = first !== null && first.ratio >= PARKING_FULL_RATIO
   const reasons: string[] = []
 
   // 화면에는 구성(포화율 + 혼잡 가산)을 드러내지 않고 "주차 혼잡 점수" 하나로만 보여준다.
@@ -70,7 +83,8 @@ export function parkingPressureReasons(
     reasons.push(
       `목적지 주변 주차 포화 ${pct}%로 여유 있음 (주차 혼잡 점수 ${score}점)`,
     )
-  } else if (firstFull) {
+  } else if (!parkingRecommended(dest, first)) {
+    // 목적지는 붐비지만 첫 도착지(차를 세울 곳)도 포화여서 추천하지 않는 경우
     reasons.push(
       `목적지 주변 주차 포화 ${pct}%이지만 첫 도착지 주변 주차도 포화 ${firstPct}%라 추천하지 않음`,
     )

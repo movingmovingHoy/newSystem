@@ -23,8 +23,7 @@ export const time = (iso: string) =>
 export const congestion = (level: number | null) =>
   `혼잡: ${level === null ? '정보 없음' : (CONGEST_LEVELS[level] ?? '정보 없음')}`
 export const scenarioNames = {
-  'car-direct': '자차 + 도보',
-  mixed: '자차 + 대중교통 혼합',
+  'car-direct': '자차',
   'transit-only': '대중교통',
   'park-transit': '자차 주차 후 대중교통',
 }
@@ -84,7 +83,7 @@ export function displayTimeline(
   const isParkTransit = route.scenario === 'park-transit'
   let index = 0
   // 방문지 사이 구간의 대중교통 상세를 모은다. transit-only 는 leg 자체가 구간,
-  // 자차/혼합은 access-out leg 이 "주차장→도착지" 접근 구간이다.
+  // 자차는 access-out leg 이 "주차장→도착지" 접근 구간이다.
   let pendingSteps: TransitStep[] = []
   let pendingWalkM = 0
 

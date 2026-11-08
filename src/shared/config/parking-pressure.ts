@@ -26,3 +26,9 @@ export const REALTIME_PARKING_MAX_DELAY_MIN = 60
 
 /** 실시간 주차 값의 갱신 시각이 이 분 수보다 오래되면 정보 없음으로 본다. */
 export const REALTIME_PARKING_MAX_AGE_MIN = 30
+
+/**
+ * 반경 내 실시간 주차장의 합계 주차면이 이 값 미만이면 대표성이 없어 정보 없음으로 본다.
+ * 작은 공영주차장 한 곳(예: 11면)의 포화율로 주변 전체를 판단하지 않기 위함이다.
+ */
+export const REALTIME_PARKING_MIN_CAPACITY = 100

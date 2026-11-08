@@ -34,7 +34,7 @@
 | 순서 최적화        | `routing/optimizer`                | 경유지 순서 브루트포스 (최대 3개→6가지). 고정순번 지원   |
 | 타임라인           | `routing/timeline`                 | 출발시각+이동+체류 누적 → 경유지별 도착/출발 시각        |
 | 점수               | `routing/scoring`                  | 시간+비용+피로도+혼잡감점, 성향 프리셋, 근거 문구        |
-| 시나리오           | `routing/strategies`               | car-direct / mixed / transit-only 조합                   |
+| 시나리오           | `routing/strategies`               | car-direct / transit-only / park-transit 조합            |
 | 오케스트레이터     | `routing/plan.ts`                  | 입력 → 순서최적화 → 3종 Route[] 생성                     |
 | 정렬               | `routing/ranking.ts`               | 추천/시간/비용/도보 4기준 정렬 (계산은 그대로, 정렬만)   |
 | provider(자차)     | `routing/providers/kakao.ts`       | 카카오모빌리티 자차 길찾기 (실물)                        |

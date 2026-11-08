@@ -3,6 +3,7 @@ import {
   congestionBonus,
   evaluateParkingPressure,
   parkingPressureReasons,
+  parkingRecommended,
 } from './parking-pressure'
 
 /**
@@ -67,6 +68,29 @@ describe('evaluateParkingPressure', () => {
 
   it('결과에 포화율을 그대로 담는다', () => {
     expect(run(0.42, 1).occupancyRatio).toBe(0.42)
+  })
+})
+
+describe('parkingRecommended', () => {
+  const dest = (ratio: number, level: number | null) =>
+    evaluateParkingPressure({ occupancyRatio: ratio, congestionLevel: level })
+
+  it('목적지가 기준(70) 이상이고 첫 도착지가 여유로우면 추천이다', () => {
+    expect(parkingRecommended(dest(0.8, 0), { ratio: 0.3 })).toBe(true)
+  })
+
+  it('목적지가 기준 미만이면 추천이 아니다', () => {
+    expect(parkingRecommended(dest(0.5, 0), { ratio: 0.3 })).toBe(false)
+  })
+
+  it('첫 도착지 주변이 80% 이상 꽉 차면 추천이 아니다', () => {
+    expect(parkingRecommended(dest(0.9, 0), { ratio: 0.8 })).toBe(false)
+    expect(parkingRecommended(dest(0.9, 0), { ratio: 0.79 })).toBe(true)
+  })
+
+  it('첫 도착지 정보가 없으면(null) 목적지 기준만 본다', () => {
+    expect(parkingRecommended(dest(0.9, 0), null)).toBe(true)
+    expect(parkingRecommended(dest(0.5, 0), null)).toBe(false)
   })
 })
 

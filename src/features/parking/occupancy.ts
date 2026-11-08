@@ -1,5 +1,8 @@
 import type { LatLng } from '@shared/types'
-import { REALTIME_PARKING_MAX_AGE_MIN } from '@shared/config'
+import {
+  REALTIME_PARKING_MAX_AGE_MIN,
+  REALTIME_PARKING_MIN_CAPACITY,
+} from '@shared/config'
 import { distanceM } from './providers/geo'
 
 /**
@@ -33,7 +36,8 @@ export type Occupancy = {
  * 중심에서 radiusM 안의 실시간 주차장을 합계 기준으로 집계한다.
  * 다음은 집계에서 뺀다: 반경 밖, 갱신 시각이 maxAgeMin 보다 오래됨,
  * 총 주차면이 0 이하/비정상, 현재 대수가 음수/비정상, 갱신 시각 파싱 불가.
- * 한 곳도 남지 않으면 null (정보 없음).
+ * 한 곳도 남지 않거나 합계 주차면이 minCapacity 미만이면 null (정보 없음).
+ * 작은 주차장 한 곳의 수치로 주변 전체를 대표하지 않기 위함이다.
  */
 export function aggregateOccupancy(
   lots: LiveParkingLot[],
@@ -41,6 +45,7 @@ export function aggregateOccupancy(
   radiusM: number,
   now: Date,
   maxAgeMin: number = REALTIME_PARKING_MAX_AGE_MIN,
+  minCapacity: number = REALTIME_PARKING_MIN_CAPACITY,
 ): Occupancy | null {
   let capacity = 0
   let current = 0
@@ -57,6 +62,6 @@ export function aggregateOccupancy(
     current += lot.current
     lotCount++
   }
-  if (lotCount === 0) return null
+  if (lotCount === 0 || capacity < minCapacity) return null
   return { ratio: Math.min(1, current / capacity), lotCount, capacity }
 }

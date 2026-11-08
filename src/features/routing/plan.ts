@@ -4,6 +4,7 @@ import type { RouteProvider } from './providers'
 import {
   evaluateParkingPressure,
   parkingPressureReasons,
+  parkingRecommended,
 } from './scoring/parking-pressure'
 import { CachedRouteProvider } from '@shared/cache'
 import {
@@ -12,7 +13,7 @@ import {
   type OptimizerWaypoint,
 } from './optimizer/optimizer'
 import { buildTransitOnlyRoute } from './strategies/transit-only'
-import { buildCarRoutes, type WaypointParking } from './strategies/car-mixed'
+import { buildCarRoute, type WaypointParking } from './strategies/car-direct'
 import { buildParkTransitRoute } from './strategies/park-transit'
 
 /**
@@ -145,8 +146,8 @@ export async function planRoutes(
     parkingFee: p.parkingFee,
   }))
 
-  // 2) 시나리오 3종 생성. destination = 순서상 마지막 도착지 위치.
-  const carRoutes = await buildCarRoutes(cachedProviders, {
+  // 2) 시나리오 생성 (자차 / 대중교통만, 조건이 맞으면 주차 후 대중교통 추가). destination = 순서상 마지막 도착지 위치.
+  const carDirect = await buildCarRoute(cachedProviders, {
     origin,
     destination,
     ordered: orderedParking,
@@ -163,14 +164,14 @@ export async function planRoutes(
     congestionLevelAt: input.congestionLevelAt,
   })
 
-  // car-direct 와 mixed 가 동일하면 하나로 합친다 (AGENTS.md 8장)
-  const routes: Route[] = carRoutes.identical
-    ? [carRoutes.carDirect, transitOnly]
-    : [carRoutes.carDirect, carRoutes.mixed, transitOnly]
+  const routes: Route[] = [carDirect, transitOnly]
 
   // 주차 후 대중교통 전환(park-transit): 출발 1 + 도착 정확히 2개일 때만 (AGENTS.md 8-1).
   // 확정된 방문 순서를 그대로 따른다: 첫 도착지에 주차하고, 둘째 도착지는
   // 대중교통으로 간다. 방문 순서를 바꾸면 이 시나리오도 그 순서로 다시 계산된다.
+  // 주차 추천 기준에 못 미치는 park-transit 는 카드는 남기되 추천(1위)에서는 뺀다.
+  let parkTransitRoute: Route | null = null
+  let parkTransitNotRecommended = false
   if (orderedPlan.length === 2) {
     const toWaypoint = (p: (typeof orderedPlan)[number]): Waypoint => ({
       id: p.waypoint.id,
@@ -233,12 +234,28 @@ export async function planRoutes(
           ...parkTransit.reasons,
           ...parkingPressureReasons(pressure, firstOccupancy),
         ]
+        parkTransitNotRecommended = !parkingRecommended(
+          pressure,
+          firstOccupancy,
+        )
       }
+      parkTransitRoute = parkTransit
       routes.push(parkTransit)
     }
   }
 
   routes.sort((a, b) => a.score - b.score)
+
+  // 추천 경로 = routes[0] (화면의 기본 선택, `추천 방식` 표시, 요약이 모두 이걸 쓴다).
+  // 주차가 붐비지 않아 추천 근거가 없는 park-transit 가 점수상 1위여도 추천은 다음 경로에 넘긴다.
+  // park-transit 는 한 칸 내려갈 뿐 사라지지 않는다. 나머지 순서는 점수 그대로다.
+  if (
+    parkTransitNotRecommended &&
+    routes.length > 1 &&
+    routes[0] === parkTransitRoute
+  ) {
+    ;[routes[0], routes[1]] = [routes[1], routes[0]]
+  }
 
   return { order: best.order, routes }
 }

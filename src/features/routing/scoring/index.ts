@@ -6,5 +6,6 @@ export {
   congestionBonus,
   evaluateParkingPressure,
   parkingPressureReasons,
+  parkingRecommended,
   type ParkingPressureResult,
 } from './parking-pressure'

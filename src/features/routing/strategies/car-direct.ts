@@ -4,16 +4,12 @@ import { computeFatigue } from '../scoring/fatigue'
 import { scoreRoute } from '../scoring/scoring'
 import { buildTimeline } from '../timeline/timeline'
 import { sumCongestedDriveMin, sumTotals } from './totals'
-import { WALK_ONLY_THRESHOLD_M, type Preference } from '@shared/config'
+import type { Preference } from '@shared/config'
 
 /**
- * 차량 유지형 경로(car-direct / mixed). AGENTS.md 8장.
+ * 자차 경로(car-direct). AGENTS.md 8장.
  * 차는 출발지 → 경유지별 주차장 → 도착지 로 이동(drive legs).
- * 각 경유지는 주차장에서 접근수단(도보 또는 대중교통)으로 왕복한다.
- *  - car-direct: 접근은 항상 도보
- *  - mixed: 경유지별로 도보/대중교통 중 점수(=시간)가 좋은 쪽
- * 주차장 선택은 두 시나리오가 공유한다. car-direct 와 mixed 결과가 같으면
- * 상위에서 하나로 합칠 수 있다.
+ * 각 경유지는 주차장에서 걸어서 왕복한다 (접근은 항상 도보).
  */
 
 /** 경유지 + 선택된 주차장 */
@@ -25,7 +21,7 @@ export type WaypointParking = {
   parkingFee: number | null
 }
 
-export type CarRoutesInput = {
+export type CarRouteInput = {
   origin: LatLng
   destination: LatLng
   /** 방문 순서대로 정렬된 경유지 + 주차장 선택 */
@@ -35,11 +31,8 @@ export type CarRoutesInput = {
   congestionLevelAt?: (loc: LatLng, arriveAt: Date) => Promise<number | null>
 }
 
-type AccessResult = {
-  /** access-out + access-back Leg (왕복) */
-  legs: Leg[]
-  mode: 'walk' | 'transit'
-}
+/** 주차장↔경유지 도보 왕복 (access-out + access-back) */
+type Access = { legs: Leg[]; mode: 'walk' }
 
 async function walkLeg(
   walk: RouteProvider,
@@ -51,73 +44,20 @@ async function walkLeg(
   return { ...leg, role }
 }
 
-/** 주차장↔경유지 왕복 접근 계산. mixed 는 도보/대중교통 비교, car-direct 는 도보 고정 */
 async function computeAccess(
-  providers: { walk: RouteProvider; transit: RouteProvider },
+  walk: RouteProvider,
   parking: LatLng,
   waypoint: LatLng,
-  allowTransit: boolean,
-): Promise<AccessResult> {
-  const walkOut = await walkLeg(providers.walk, parking, waypoint, 'access-out')
-  const walkBack = await walkLeg(
-    providers.walk,
-    waypoint,
-    parking,
-    'access-back',
-  )
-  const walkAccess: AccessResult = { legs: [walkOut, walkBack], mode: 'walk' }
-
-  // 도보 거리가 짧으면 대중교통 계산 생략 (AGENTS.md 8장)
-  if (!allowTransit || walkOut.walkDistanceM <= WALK_ONLY_THRESHOLD_M) {
-    return walkAccess
-  }
-
-  const [transitOut] = await providers.transit.route({
-    from: parking,
-    to: waypoint,
-  })
-  const [transitBack] = await providers.transit.route({
-    from: waypoint,
-    to: parking,
-  })
-  const transitAccess: AccessResult = {
-    legs: [
-      { ...transitOut, role: 'access-out' },
-      { ...transitBack, role: 'access-back' },
-    ],
-    mode: 'transit',
-  }
-
-  // 시간만이 아니라 시간+비용+피로도로 비교해 좋은 쪽 선택 (AGENTS.md 8장).
-  // 접근은 짧은 구간이라 간단한 가중합으로 근사한다.
-  const accessCost = (legs: Leg[]): number => {
-    const sec = legs.reduce((s, l) => s + l.durationSec, 0)
-    const won = legs.reduce((s, l) => s + l.cost, 0)
-    const walkM = legs.reduce((s, l) => s + l.walkDistanceM, 0)
-    const transfers = legs.reduce((s, l) => s + l.transfers, 0)
-    // 분 + 비용(백원당 0.5) + 도보(100m당 1) + 환승(회당 3)
-    return sec / 60 + (won / 100) * 0.5 + (walkM / 100) * 1 + transfers * 3
-  }
-  return accessCost(transitAccess.legs) < accessCost(walkAccess.legs)
-    ? transitAccess
-    : walkAccess
+): Promise<Access> {
+  const out = await walkLeg(walk, parking, waypoint, 'access-out')
+  const back = await walkLeg(walk, waypoint, parking, 'access-back')
+  return { legs: [out, back], mode: 'walk' }
 }
 
-export type CarRoutesResult = {
-  carDirect: Route
-  mixed: Route
-  /** car-direct 와 mixed 의 접근수단이 모두 도보로 같으면 true */
-  identical: boolean
-}
-
-export async function buildCarRoutes(
-  providers: {
-    car: RouteProvider
-    walk: RouteProvider
-    transit: RouteProvider
-  },
-  input: CarRoutesInput,
-): Promise<CarRoutesResult> {
+export async function buildCarRoute(
+  providers: { car: RouteProvider; walk: RouteProvider },
+  input: CarRouteInput,
+): Promise<Route> {
   const { origin, destination, ordered, departAt } = input
 
   // 차 이동 지점: 출발 → 주차장들 → 도착
@@ -136,44 +76,23 @@ export async function buildCarRoutes(
     driveLegs.push({ ...leg, role: 'drive' })
   }
 
-  // 경유지별 접근 (car-direct: 도보 고정, mixed: 도보/대중교통 비교)
-  const directAccess: AccessResult[] = []
-  const mixedAccess: AccessResult[] = []
+  const access: Access[] = []
   for (const o of ordered) {
-    directAccess.push(
+    access.push(
       await computeAccess(
-        providers,
+        providers.walk,
         o.parkingLocation,
         o.waypoint.location,
-        false,
-      ),
-    )
-    mixedAccess.push(
-      await computeAccess(
-        providers,
-        o.parkingLocation,
-        o.waypoint.location,
-        true,
       ),
     )
   }
 
-  const carDirect = assembleRoute('car-direct', input, driveLegs, directAccess)
-  const mixed = assembleRoute('mixed', input, driveLegs, mixedAccess)
-  const identical = mixedAccess.every((a) => a.mode === 'walk')
-
-  return {
-    carDirect: await carDirect,
-    mixed: await mixed,
-    identical,
-  }
+  return assembleRoute(input, driveLegs, access)
 }
-
 async function assembleRoute(
-  scenario: 'car-direct' | 'mixed',
-  input: CarRoutesInput,
+  input: CarRouteInput,
   driveLegs: Leg[],
-  access: AccessResult[],
+  access: Access[],
 ): Promise<Route> {
   // 전체 leg = drive[0] + (access-out+back)[0] + drive[1] + ... + drive[last]
   const legs: Leg[] = []
@@ -237,7 +156,7 @@ async function assembleRoute(
       )
     : null
   const scored = scoreRoute({
-    scenario,
+    scenario: 'car-direct',
     durationSec: totals.durationSec,
     cost: totals.cost,
     fatigue: totals.fatigue,
@@ -249,7 +168,7 @@ async function assembleRoute(
   if (parkingCostPartial) reasons.push('주차비 일부 정보 없음')
 
   return {
-    scenario,
+    scenario: 'car-direct',
     legs,
     stops,
     totals,

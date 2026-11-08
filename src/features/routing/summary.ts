@@ -8,8 +8,8 @@ import type { Route, Scenario } from '@shared/types'
 
 const SCENARIO_LABEL: Record<Scenario, string> = {
   'car-direct': '자차',
-  mixed: '혼합(주차 후 대중교통·도보)',
   'transit-only': '대중교통',
+  'park-transit': '자차 주차 후 대중교통',
 }
 
 export type RouteSummary = {

@@ -9,7 +9,7 @@ import type { Preference } from '@shared/config'
 /**
  * 주차 후 대중교통 전환(park-transit) 경로. AGENTS.md 8-1.
  * 출발지 → 도착지A 는 자차(여기 주차), 도착지A → 도착지B 는 대중교통.
- * "차량 유지형"(car-direct/mixed)과 달리 차를 A에 두고 B로 간다.
+ * "차량 유지형"(car-direct)과 달리 차를 A에 두고 B로 간다.
  *
  * 적용 조건(출발 1 + 도착 2개)과 두 방향(A→B, B→A) 비교는 상위(plan.ts)에서
  * 처리한다. 이 함수는 "주차지 parkAt → 목적지 destination" 한 방향만 만든다.

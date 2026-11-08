@@ -98,6 +98,46 @@ describe('aggregateOccupancy', () => {
     ).toBeNull()
   })
 
+  it('합계 주차면이 너무 작으면 대표성이 없어 정보 없음(null)이다', () => {
+    // 11면 1곳의 9%로 주변 전체를 판단하지 않는다 (기준 100면 미만)
+    expect(
+      aggregateOccupancy(
+        [lot({ capacity: 11, current: 1 })],
+        center,
+        1000,
+        now,
+      ),
+    ).toBeNull()
+    // 여러 곳을 합쳐서 기준에 닿으면 쓴다: 60 + 40 = 100면
+    const merged = aggregateOccupancy(
+      [
+        lot({ id: 'a', capacity: 60, current: 30 }),
+        lot({ id: 'b', capacity: 40, current: 10 }),
+      ],
+      center,
+      1000,
+      now,
+    )
+    expect(merged?.capacity).toBe(100)
+    expect(merged?.ratio).toBeCloseTo(0.4)
+  })
+
+  it('기준은 정확히 100면부터 쓰고, 값은 바꿀 수 있다', () => {
+    const at = (capacity: number, min?: number) =>
+      aggregateOccupancy(
+        [lot({ capacity, current: 0 })],
+        center,
+        1000,
+        now,
+        undefined,
+        min,
+      )
+    expect(at(99)).toBeNull()
+    expect(at(100)).not.toBeNull()
+    expect(at(50, 50)).not.toBeNull()
+    expect(at(50, 51)).toBeNull()
+  })
+
   it('현재 대수가 총 주차면을 넘으면 포화율은 1로 제한한다', () => {
     const result = aggregateOccupancy(
       [lot({ capacity: 100, current: 130 })],

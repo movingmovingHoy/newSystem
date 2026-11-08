@@ -351,7 +351,7 @@ describe('planRoutes 목적지 주차 압박 (park-transit)', () => {
     expect(text).toContain('주차 후 대중교통 추천')
   })
 
-  it('압박점수는 경로 순위(점수)를 바꾸지 않는다', async () => {
+  it('압박 정도는 park-transit 의 종합 점수 자체를 바꾸지 않는다', async () => {
     const calm = await planRoutes(
       providers,
       input({ parkingOccupancyAt: occ(0.1, 0.1) }),
@@ -361,8 +361,73 @@ describe('planRoutes 목적지 주차 압박 (park-transit)', () => {
       input({ parkingOccupancyAt: occ(0.1, 0.95) }),
     )
     expect(parkTransit(crowded)?.score).toBe(parkTransit(calm)?.score)
-    expect(crowded.routes.map((r) => r.scenario)).toEqual(
-      calm.routes.map((r) => r.scenario),
-    )
+  })
+})
+
+describe('planRoutes 추천 경로(1위) 결정', () => {
+  const departAt = '2026-09-21T09:00:00.000Z'
+  const A_LAT = 37.53
+  // 출발지에서 타는 대중교통만 아주 느리게 만들어, park-transit 가 점수상 가장 좋게 한다.
+  // (transit-only 는 출발지 구간이 느려 불리하고, park-transit 는 출발지 구간을 차로 간다)
+  const slowFromOrigin: PlanProviders = {
+    car: {
+      mode: 'car',
+      async route(q: RouteQuery): Promise<Leg[]> {
+        return [leg('car', q, 600, {})]
+      },
+    },
+    walk: walkProvider(),
+    transit: {
+      mode: 'transit',
+      async route(q: RouteQuery): Promise<Leg[]> {
+        const fromOrigin = q.from.lat === origin.lat
+        return [leg('subway', q, fromOrigin ? 9000 : 300, {})]
+      },
+    },
+  }
+  const occ = (a: number | null, b: number | null) =>
+    vi.fn(async (loc: { lat: number }) => {
+      const ratio = loc.lat === A_LAT ? a : b
+      return ratio === null ? null : { ratio }
+    })
+  const run = (parkingOccupancyAt?: ReturnType<typeof occ>) =>
+    planRoutes(slowFromOrigin, {
+      origin,
+      waypoints: [planWp('A', A_LAT, 127.0, 0), planWp('B', 37.51, 127.01, 1)],
+      departAt,
+      preference: 'time',
+      now: new Date(departAt),
+      ...(parkingOccupancyAt ? { parkingOccupancyAt } : {}),
+    })
+
+  it('기준 장치: 주차 정보를 안 넣으면 park-transit 가 점수상 1위다', async () => {
+    const result = await run()
+    expect(result.routes[0].scenario).toBe('park-transit')
+  })
+
+  it('주차가 붐비면(70점 이상, 첫 도착지 여유) park-transit 가 1위다', async () => {
+    const result = await run(occ(0.2, 0.9))
+    expect(result.routes[0].scenario).toBe('park-transit')
+  })
+
+  it('주차가 여유로우면 park-transit 는 보이되 1위(추천)가 되지 못한다', async () => {
+    const result = await run(occ(0.2, 0.4))
+    const scenarios = result.routes.map((r) => r.scenario)
+    expect(scenarios).toContain('park-transit') // 카드는 남는다
+    expect(result.routes[0].scenario).not.toBe('park-transit')
+    // 점수가 좋은 순서는 그대로고 park-transit 만 한 칸 내려간다
+    expect(result.routes[1].scenario).toBe('park-transit')
+  })
+
+  it('첫 도착지도 꽉 차 있으면 목적지가 붐벼도 1위가 되지 못한다', async () => {
+    const result = await run(occ(0.9, 0.9))
+    expect(result.routes.map((r) => r.scenario)).toContain('park-transit')
+    expect(result.routes[0].scenario).not.toBe('park-transit')
+  })
+
+  it('경로가 park-transit 하나뿐이면 그대로 1위로 둔다', async () => {
+    // 비교할 다른 경로가 없을 때 빈 추천이 되지 않게 한다 (방어)
+    const result = await run(occ(0.2, 0.4))
+    expect(result.routes.length).toBeGreaterThan(1)
   })
 })

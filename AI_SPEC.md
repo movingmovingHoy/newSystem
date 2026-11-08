@@ -43,7 +43,7 @@ AGENTS.md 4장 폴더 구조대로 빈 뼈대를 만들어라.
 1. routing/providers: 자차(카카오모빌리티), 대중교통, 도보 provider 구현. 처음에는 mock, 이후 실제 API. [구현 결과: 대중교통은 카카오 대신 ODsay로 채택 — ODsay가 도보 구간까지 포함해 별도 병행 호출 불필요. 도보는 카카오 유료라 mock 유지]
 2. shared/cache: CachedRouteProvider 래퍼 (AGENTS.md 14장). 반올림 키, 시간 버킷, 동시 요청 합치기, 히트/미스 카운터
 3. routing/optimizer: 출발·도착 고정, 경유지 최대 3개 브루트포스, 고정 순번 처리, 구간은 실제 자차 길찾기 시간으로 (AGENTS.md 9장)
-4. routing/strategies: car-direct, mixed(경유지별 접근수단 비교, 왕복 블록), transit-only (AGENTS.md 8장)
+4. routing/strategies: car-direct(주차 후 도보 왕복 블록), transit-only, park-transit (AGENTS.md 8장)
 5. routing/timeline: 출발 시각 + 이동 + 체류 누적, 경유지별 도착/출발 시각과 최종 도착 시각
 6. congestion: 121곳 영역 매칭(좌표 → areaCode), 실시간 도시데이터 provider(장소코드별 30분 캐시), 도착 시각의 예측값 조회, 범위 밖/영역 밖은 level=null
 7. routing/scoring: 종합점수, 피로도, 혼잡 감점(단계 × 시나리오 민감도), 정보 없음은 감점 0, 항목별 근거 문구(reasons), 성향 프리셋

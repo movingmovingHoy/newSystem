@@ -8,16 +8,15 @@ import type { Route } from '@shared/types'
 import type { JourneyDraft, ParkingSelections } from '../services/journey'
 import { departureIso } from '../services/journey'
 import {
-  describeTransitStep,
   displayTimeline,
-  meters,
   minutes,
   scenarioNames,
-  time,
   won,
 } from '../services/display'
+import { journeyEvents } from '../services/journeyEvents'
 import { placeById } from '../services/catalog'
 import { Icon } from './Icons'
+import { CarJourney } from './CarJourney'
 import { TransitJourney } from './TransitJourney'
 import { RouteParkingPressure } from './ParkingPressureBadge'
 
@@ -37,9 +36,13 @@ export function RouteResults({
   onSelect: (route: Route) => void
 }) {
   const [sort, setSort] = useState<RankCriterion>('recommended')
-  const routes = rankRoutes(result.routes, sort),
+  // 추천순은 planRoutes 가 정한 순서를 그대로 쓴다. 그 순서가 "주차 추천 기준에 못 미치는
+  // park-transit 는 1위에서 뺀다"는 규칙을 이미 반영하고 있어서, 점수로 다시 정렬하면 어긋난다.
+  const routes =
+      sort === 'recommended' ? result.routes : rankRoutes(result.routes, sort),
     recommended = result.routes[0],
-    timeline = displayTimeline(selected, draft, selections)
+    timeline = displayTimeline(selected, draft, selections),
+    events = journeyEvents(selected, draft, selections)
   const isTransit = selected.scenario === 'transit-only'
   // 종점(순서상 마지막 도착지). "최종 도착지" 고정 개념이 없다.
   const endpointId = result.order.at(-1) ?? draft.waypoints[0]?.id
@@ -121,7 +124,7 @@ export function RouteResults({
                     ? '출발지부터 마지막 목적지까지'
                     : route.scenario === 'park-transit'
                       ? '첫 도착지에 주차 후 대중교통'
-                      : '선택한 주차장에서 왕복 접근'}
+                      : '선택한 주차장에 세우고 걸어서 이동'}
                 </span>
               </p>
               <div className="card-metrics">
@@ -172,99 +175,7 @@ export function RouteResults({
               departure={departureIso(draft)}
             />
           ) : (
-            <div className="journey">
-              <div className="journey-step">
-                <span className="step-icon">
-                  <Icon name="pin" />
-                </span>
-                <div>
-                  <div className="step-heading">
-                    <strong>{placeById(draft.originId).name}</strong>
-                  </div>
-                  <p>{time(departureIso(draft))} 출발</p>
-                </div>
-              </div>
-              {timeline.visits.map((visit, index) => (
-                <div
-                  className={`journey-step ${visit.accessMode === 'transit' ? 'transit' : 'walk'}`}
-                  key={index}
-                >
-                  <span className="step-icon">
-                    <Icon
-                      name={visit.accessMode === 'transit' ? 'train' : 'walk'}
-                    />
-                  </span>
-                  <div>
-                    <div className="step-heading">
-                      <strong>{visit.name}</strong>
-                      <b>체류 {visit.dwellMin}분</b>
-                    </div>
-                    <p>{time(visit.arriveAt)} 도착</p>
-                    <p>{time(visit.departAt)} 출발</p>
-                    {/* 이 도착지까지 어떻게 왔는지 (대중교통 승하차 / 도보) */}
-                    {visit.transitSteps.length > 0 ? (
-                      <ul className="segment-detail">
-                        {visit.transitSteps.map((step, i) => (
-                          <li key={i} data-type={step.type}>
-                            {describeTransitStep(step)}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      visit.accessWalkM > 0 && (
-                        <p className="segment-walk">
-                          도보 {meters(visit.accessWalkM)}
-                        </p>
-                      )
-                    )}
-                    {/* 자차/혼합: 주차장 정보 (없으면 정보 없음) */}
-                    {!isTransit && (
-                      <p className="segment-parking">
-                        <Icon name="parking" size={13} />
-                        {visit.parkingName
-                          ? `주차 · ${visit.parkingName}`
-                          : '주차 정보: 없음'}
-                        {' · '}
-                        {visit.parkingFee === null
-                          ? '요금 정보 없음'
-                          : won(visit.parkingFee)}
-                      </p>
-                    )}
-                    <small>{visit.congestion}</small>
-                  </div>
-                </div>
-              ))}
-              <div className="journey-step transit">
-                <span className="step-icon">
-                  <Icon name="check" />
-                </span>
-                <div>
-                  <div className="step-heading">
-                    <strong>{endpointPlace.name}</strong>
-                  </div>
-                  {/* 종점까지 대중교통 구간 상세 (transit-only) */}
-                  {timeline.endpointSteps.length > 0 && (
-                    <ul className="segment-detail">
-                      {timeline.endpointSteps.map((step, i) => (
-                        <li key={i} data-type={step.type}>
-                          {describeTransitStep(step)}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  <p>최종 도착 · {time(timeline.finalArriveAt)}</p>
-                  <small>
-                    {live
-                      ? '도착지 혼잡은 아래 추천 근거에 반영됩니다.'
-                      : '혼잡: 정보 없음'}
-                  </small>
-                </div>
-              </div>
-              <div className="journey-end">
-                <Icon name="check" size={14} />
-                마지막 목적지 도착 · 일정 완료
-              </div>
-            </div>
+            <CarJourney events={events} live={live} />
           )}
           <div className="cost-panel">
             <h4>
@@ -331,10 +242,7 @@ export function RouteResults({
           <p>
             이동시간은 체류시간을 제외하며, 타임라인에는 체류시간을 포함합니다.
           </p>
-          <p>
-            혼잡도는 통계 기반 추정입니다. 자차와 혼합 경로가 같으면 하나로 합쳐
-            표시해요.
-          </p>
+          <p>혼잡도는 통계 기반 추정입니다.</p>
         </div>
       </div>
     </>

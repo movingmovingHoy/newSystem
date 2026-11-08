@@ -20,6 +20,7 @@ Vite 설정, UI provider 교체, 서버 HTTP 엔드포인트는 연결하지 않
   브라우저용 providers/index.ts에서 export하지 않는다.
 - ingest/seoul-store.ts: 서버에서 한 인스턴스를 공유해 동시 수집을 합친다.
   검색이 발생한 KST 날짜에 한 번 전체 데이터를 갱신한다. 자동 스케줄러는 아니다.
+  날짜가 바뀐 뒤에는 어제 데이터로 먼저 응답하고 뒤에서 갱신한다 (COMBINED.md '갱신 방식').
 - 기존 SqliteParkingProvider, findParkingCandidates와 함께 사용한다.
 - 전용 DB 파일은 data/seoul-parking.sqlite. 다른 공급자/샘플 DB와 섞지 않는다.
   현재 로컬 파일은 실제 조회 검증으로 생성했으며 .gitignore의 *.sqlite로 제외된다.
@@ -39,8 +40,9 @@ Vite 설정, UI provider 교체, 서버 HTTP 엔드포인트는 연결하지 않
 - 요금은 기본 요율에 따른 예상값이다. 운영시간, 주말/공휴일/야간 무료,
   할인/정기권, 입차 가능 여부는 아직 반영하지 않는다. 화면 연결 시 반드시 안내한다.
 - 실시간 잔여석은 제공하지 않는다.
-- 일부 페이지 실패/누락, 조회 중 총건수 변경, 유효시설 0건이면 기존 DB를 유지하고
-  오류를 반환한다. 오래된 데이터나 샘플로 조용히 대체하지 않는다.
+- 일부 페이지 실패/누락, 조회 중 총건수 변경, 유효시설 0건이면 기존 DB를 유지한다.
+  DB가 비어 있는 첫 수집이면 오류를 반환하고, 이미 데이터가 있으면 오류 대신 기존(오래된)
+  데이터를 계속 쓰며 서버 로그에 남긴다 (COMBINED.md '갱신 방식'). 샘플로 대체하지 않는다.
 - 서울시 원본 전체 건수와 검색 가능한 고유 시설 수는 다르다. 전체 서울 주차장을
   빠짐없이 제공한다고 표시하지 않는다.
 
@@ -53,15 +55,16 @@ import { SeoulParkingStore } from './seoul-store'
 import { findParkingCandidates } from '../finder'
 
 const db = openParkingDatabase('data/seoul-parking.sqlite')
-const provider = new SeoulParkingStore(
-  db,
-  () => fetchSeoulParkingSnapshot(process.env.SEOUL_PARKING_KEY ?? ''),
+const provider = new SeoulParkingStore(db, () =>
+  fetchSeoulParkingSnapshot(process.env.SEOUL_PARKING_KEY ?? ''),
 )
 // 실제 서버에서는 요청마다 인스턴스를 만들지 않고 공유한다.
 // 서버 프로세스가 .env를 로드한 상태여야 한다.
 try {
   const candidates = await findParkingCandidates(
-    provider, { lat: 37.5665, lng: 126.978 }, 60,
+    provider,
+    { lat: 37.5665, lng: 126.978 },
+    60,
   )
   // HTTP 응답으로 candidates만 전달. 키는 응답에 포함하지 않는다.
 } finally {

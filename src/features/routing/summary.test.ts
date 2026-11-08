@@ -49,6 +49,13 @@ describe('summarizeRoutes', () => {
     expect(r.headline).toContain('없습니다')
   })
 
+  it('주차 후 대중교통이 1위면 이름을 문구에 쓴다', () => {
+    const r = summarizeRoutes([
+      route('park-transit', 40, { durationSec: 1800, cost: 3000 }),
+    ])
+    expect(r.headline).toContain('자차 주차 후 대중교통')
+  })
+
   it('경로가 하나면 요약만', () => {
     const r = summarizeRoutes([
       route('car-direct', 50, { durationSec: 1800, cost: 3000 }),

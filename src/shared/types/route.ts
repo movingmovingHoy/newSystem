@@ -25,7 +25,7 @@ export type TransitStep = {
 
 export type Leg = {
   mode: Mode
-  /** 혼합 경로의 주차장↔경유지 왕복 구분 */
+  /** 자차 경로의 주차장↔경유지 도보 왕복 구분 */
   role?: 'drive' | 'access-out' | 'access-back'
   from: LatLng
   to: LatLng
@@ -51,7 +51,7 @@ export type Leg = {
   congestedDriveSec?: number
 }
 
-export type Scenario = 'car-direct' | 'mixed' | 'transit-only' | 'park-transit'
+export type Scenario = 'car-direct' | 'transit-only' | 'park-transit'
 
 /**
  * 경로 합계. AGENTS.md 10장: 요금 정보 없는 주차장이 섞이면
