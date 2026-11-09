@@ -12,7 +12,14 @@ import { Icon } from './Icons'
 import './source.css'
 import './native.css'
 
-export function ChaloApp({ service }: { service?: JourneyService }) {
+export function ChaloApp({
+  service,
+  demo = false,
+}: {
+  service?: JourneyService
+  /** 데모 모드: 외부 API 없이 샘플 데이터로 동작 (npm run demo) */
+  demo?: boolean
+}) {
   const flow = useJourney(service)
   const [scenario, setScenario] = useState<Scenario | null>(null)
   const dialog = useRef<HTMLDialogElement>(null),
@@ -91,7 +98,7 @@ export function ChaloApp({ service }: { service?: JourneyService }) {
         </button>
       </header>
       <main className="workspace" id="chalo-main">
-        <Sidebar flow={flow} />
+        <Sidebar flow={flow} demo={demo} />
         <section className="results" aria-busy={flow.busy} ref={content}>
           <div className="result-heading">
             <div className="breadcrumbs">
@@ -108,7 +115,11 @@ export function ChaloApp({ service }: { service?: JourneyService }) {
                 <span>가는 길</span>
               </h2>
               <span className="data-badge">
-                {flow.live ? 'API 경로 조회' : '테스트 데이터'}
+                {flow.live
+                  ? 'API 경로 조회'
+                  : demo
+                    ? '데모 · 샘플 데이터'
+                    : '테스트 데이터'}
               </span>
             </div>
             <p>도로 혼잡을 피해, 이동시간과 비용을 함께 비교해보세요.</p>
@@ -116,9 +127,9 @@ export function ChaloApp({ service }: { service?: JourneyService }) {
           {flow.stage === 'input' && (
             <div className="dirty-notice">
               <Icon name="info" size={15} />
-              장소를 선택한 뒤 ‘더 나은 경로 찾기’를 눌러 조회하세요.
-              자동차·대중교통과 공영주차장은 실제 데이터를 사용하며, 접근 도보는
-              추정값입니다.
+              {demo
+                ? '데모 모드입니다. 외부 API 없이 샘플 데이터로 계산하며, 실제 경로·요금·주차 상황과 다릅니다. 장소를 고른 뒤 ‘더 나은 경로 찾기’를 눌러보세요.'
+                : '장소를 선택한 뒤 ‘더 나은 경로 찾기’를 눌러 조회하세요. 자동차·대중교통과 공영주차장은 실제 데이터를 사용하며, 접근 도보는 추정값입니다.'}
             </div>
           )}
           {flow.error && (
@@ -164,6 +175,7 @@ export function ChaloApp({ service }: { service?: JourneyService }) {
           {result && selected && (
             <RouteResults
               live={flow.live}
+              demo={demo}
               result={result}
               draft={draft}
               selected={selected}
@@ -197,10 +209,9 @@ export function ChaloApp({ service }: { service?: JourneyService }) {
         <div className="guide-note">
           <strong>데이터 연결 상태</strong>
           <p>
-            자동차는 카카오, 대중교통은 ODsay, 혼잡도는 서울시 API로 조회합니다.
-            접근 도보는 추정값이고 주차장은 서울시·교통안전공단 공영주차장
-            데이터이며 잔여 주차면은 표시하지 않습니다. 택시는 현재 MVP에
-            포함되지 않습니다.
+            {demo
+              ? '데모 모드에서는 외부 API를 부르지 않고 샘플 데이터로 계산합니다. 경로 순서 최적화, 점수, 주차 혼잡 추천 로직은 실제 서비스와 같은 코드입니다.'
+              : '자동차는 카카오, 대중교통은 ODsay, 혼잡도는 서울시 API로 조회합니다. 접근 도보는 추정값이고 주차장은 서울시·교통안전공단 공영주차장 데이터이며 잔여 주차면은 표시하지 않습니다. 택시는 현재 MVP에 포함되지 않습니다.'}
           </p>
         </div>
       </dialog>

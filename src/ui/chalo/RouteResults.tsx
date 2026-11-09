@@ -22,6 +22,7 @@ import { RouteParkingPressure } from './ParkingPressureBadge'
 
 export function RouteResults({
   live = false,
+  demo = false,
   result,
   draft,
   selected,
@@ -29,6 +30,7 @@ export function RouteResults({
   onSelect,
 }: {
   live?: boolean
+  demo?: boolean
   result: PlanResult
   draft: JourneyDraft
   selected: Route
@@ -79,7 +81,9 @@ export function RouteResults({
         <small>
           {live
             ? 'API 조회 결과 · 공영주차장 · 도보 추정'
-            : '테스트 데이터 기준'}{' '}
+            : demo
+              ? '데모 샘플 데이터 기준'
+              : '테스트 데이터 기준'}{' '}
           · {minutes(recommended.totals.durationSec)} ·{' '}
           {won(recommended.totals.cost)}
           {recommended.totals.parkingCostPartial ? ' + 미확인 주차비' : ''}

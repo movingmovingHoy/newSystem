@@ -4,7 +4,13 @@ import { PlacePicker } from './PlacePicker'
 import { Icon } from './Icons'
 import { useWaypointDrag } from '../hooks/useWaypointDrag'
 import { placeById } from '../services/catalog'
-export function Sidebar({ flow }: { flow: JourneyState }) {
+export function Sidebar({
+  flow,
+  demo = false,
+}: {
+  flow: JourneyState
+  demo?: boolean
+}) {
   const { draft } = flow
   const drag = useWaypointDrag(flow.moveWaypoint)
   return (
@@ -198,7 +204,9 @@ export function Sidebar({ flow }: { flow: JourneyState }) {
             <p id="data-source">
               {flow.live
                 ? '카카오·ODsay·공영주차장 조회 / 도보 추정'
-                : '테스트 데이터'}
+                : demo
+                  ? '데모 · 샘플 데이터 (외부 API 미사용)'
+                  : '테스트 데이터'}
             </p>
           </div>
           <button

@@ -17,10 +17,15 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       react(),
-      parkingPlugin({
-        seoul: env.SEOUL_PARKING_KEY ?? '',
-        ts: env.TS_PARKING_SERVICE_KEY ?? '',
-      }),
+      // 데모 모드(npm run demo)는 서버 API가 필요 없으므로 주차 DB 플러그인도 끈다.
+      ...(mode === 'demo'
+        ? []
+        : [
+            parkingPlugin({
+              seoul: env.SEOUL_PARKING_KEY ?? '',
+              ts: env.TS_PARKING_SERVICE_KEY ?? '',
+            }),
+          ]),
     ],
     resolve: {
       alias: {

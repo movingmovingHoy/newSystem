@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { searchPlaces } from '@features/routing/providers'
 import { registerPlace, type SearchPlace } from '../services/catalog'
+import { isDemoMode, searchDemoPlaces } from '../services/demo'
 export function usePlaceSearch(
   query: string,
   kind: 'origin' | 'destination',
@@ -15,6 +16,11 @@ export function usePlaceSearch(
     setError('')
     setLoading(false)
     if (!open || query.trim().length < 2) return
+    // 데모 모드: 카카오를 부르지 않고 샘플 장소·서울 주요 121곳에서 찾는다.
+    if (isDemoMode()) {
+      setRemote(searchDemoPlaces(query))
+      return
+    }
     setLoading(true)
     const timer = setTimeout(() => {
       const q = query.trim()
